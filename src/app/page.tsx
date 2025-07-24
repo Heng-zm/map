@@ -1,5 +1,5 @@
 'use client';
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
@@ -22,76 +22,68 @@ export default function MapExplorerPage() {
   const [lng, setLng] = useState(-98.5795);
   const [lat, setLat] = useState(39.8283);
   const [zoom, setZoom] = useState(3.5);
-  const [markers, setMarkers] = useState<{lng: number, lat: number}[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [mapLoaded, setMapLoaded] = useState(false);
   const { toast } = useToast();
+  const markersRef = useRef<any[]>([]);
+
+  const initializeMap = useCallback(() => {
+    if (map.current || !mapContainer.current || typeof window.mapboxgl === 'undefined') return;
+
+    window.mapboxgl.accessToken = MAPBOX_TOKEN;
+    map.current = new window.mapboxgl.Map({
+      container: mapContainer.current!,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [lng, lat],
+      zoom: zoom,
+    });
+
+    map.current.on('load', () => {
+      setMapLoaded(true);
+    });
+
+    map.current.on('move', () => {
+      setLng(map.current.getCenter().lng.toFixed(4));
+      setLat(map.current.getCenter().lat.toFixed(4));
+      setZoom(map.current.getZoom().toFixed(2));
+    });
+
+    map.current.on('click', (e: any) => {
+        const { lng, lat } = e.lngLat;
+        const newMarker = new window.mapboxgl.Marker({
+            color: 'hsl(var(--accent))',
+        })
+        .setLngLat([lng, lat])
+        .addTo(map.current);
+        
+        markersRef.current.push(newMarker);
+    });
+  }, [lng, lat, zoom]);
 
   useEffect(() => {
-    if (map.current || !mapContainer.current) return;
-    
-    const initializeMap = () => {
-        if (typeof window.mapboxgl !== 'undefined') {
-            window.mapboxgl.accessToken = MAPBOX_TOKEN;
-            map.current = new window.mapboxgl.Map({
-              container: mapContainer.current!,
-              style: 'mapbox://styles/mapbox/streets-v12',
-              center: [lng, lat],
-              zoom: zoom,
-            });
-    
-            map.current.on('load', () => {
-              setMapLoaded(true);
-            });
-        
-            map.current.on('move', () => {
-              setLng(map.current.getCenter().lng.toFixed(4));
-              setLat(map.current.getCenter().lat.toFixed(4));
-              setZoom(map.current.getZoom().toFixed(2));
-            });
-    
-            map.current.on('click', (e: any) => {
-                const { lng, lat } = e.lngLat;
-                setMarkers(prevMarkers => [...prevMarkers, { lng, lat }]);
-            });
-        }
-    };
-
     const script = document.querySelector('script[src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"]');
     
+    const handleScriptLoad = () => {
+        initializeMap();
+    };
+
     if (script) {
         if (window.mapboxgl) {
-            initializeMap();
+            handleScriptLoad();
         } else {
-            script.addEventListener('load', initializeMap);
+            script.addEventListener('load', handleScriptLoad);
         }
     }
 
-
     return () => {
-      script?.removeEventListener('load', initializeMap);
+      script?.removeEventListener('load', handleScriptLoad);
       map.current?.remove();
       map.current = null;
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
     }
-  }, []);
+  }, [initializeMap]);
 
-  useEffect(() => {
-    if (!map.current || !mapLoaded) return;
-    
-    // This is a simple approach to sync markers. For many markers, this could be optimized.
-    document.querySelectorAll('.mapboxgl-marker').forEach(marker => marker.remove());
-
-    markers.forEach(marker => {
-      const el = document.createElement('div');
-      el.className = 'marker';
-      
-      new window.mapboxgl.Marker({
-        color: 'hsl(var(--accent))',
-      })
-        .setLngLat([marker.lng, marker.lat])
-        .addTo(map.current);
-    });
-  }, [markers, mapLoaded]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
