@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Mic, Layers, Send, Compass, Loader } from 'lucide-react';
+import { Search, Mic, Layers, Send, Compass } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
 import { search } from '@/ai/flows/search-flow';
@@ -174,20 +174,15 @@ export default function MapExplorerPage() {
 
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[90%] max-w-lg">
         <form onSubmit={handleSearch} className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-2 flex items-center gap-2">
-          {loading ? (
-            <Loader className="h-5 w-5 text-muted-foreground ml-2 animate-spin" />
-          ) : (
-            <Search className="h-5 w-5 text-muted-foreground ml-2" />
-          )}
+          <Search className="h-5 w-5 text-muted-foreground ml-2" />
           <Input 
             placeholder="Search Maps" 
             className="flex-1 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base"
             aria-label="Search Maps"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            disabled={loading}
           />
-          <Button type="submit" variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={loading}>
+           <Button type="submit" variant="ghost" size="icon" className="h-8 w-8 shrink-0">
             <Send className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
