@@ -1,128 +1,90 @@
 'use client';
-import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import React, { useRef, useState, useEffect } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from '@/components/ui/skeleton';
+
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
 const containerStyle = {
   width: '100%',
   height: '100%'
 };
 
-const initialCenter = {
-  lat: 39.8283,
-  lng: -98.5795
-};
-
-const libraries: ('places' | 'drawing' | 'geometry' | 'visualization')[] = ['places'];
+const initialCenter: [number, number] = [-98.5795, 39.8283];
 
 export default function MapExplorerPage() {
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [center, setCenter] = useState(initialCenter);
-  const [zoom, setZoom] = useState(4);
+  const mapContainer = useRef<HTMLDivElement | null>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const [center] = useState(initialCenter);
+  const [zoom] = useState(3.5);
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
-  const [markers, setMarkers] = useState<{lat: number, lng: number}[]>([]);
-  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-  const [isApiLoaded, setIsApiLoaded] = useState(false);
 
-  const onScriptLoad = useCallback(() => {
-    geocoderRef.current = new window.google.maps.Geocoder();
-    setIsApiLoaded(true);
-  }, []);
-
-  const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
-    setMap(mapInstance);
-  }, []);
-
-  const onMapClick = useCallback((e: google.maps.MapMouseEvent) => {
-    if (e.latLng) {
-      const newMarker = {
-        lat: e.latLng.lat(),
-        lng: e.latLng.lng(),
-      };
-      setMarkers(prev => [...prev, newMarker]);
-    }
-  }, []);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery || !geocoderRef.current) return;
-
-    geocoderRef.current.geocode({ address: searchQuery }, (results, status) => {
-      if (status === 'OK' && results && results[0]) {
-        const location = results[0].geometry.location;
-        map?.panTo(location);
-        map?.setZoom(14);
-        setCenter({ lat: location.lat(), lng: location.lng() });
-      } else {
+  useEffect(() => {
+    if (map.current || !mapContainer.current) return;
+    if (!mapboxgl.accessToken) {
         toast({
             variant: "destructive",
-            title: "Location not found",
-            description: "Please try a different search query.",
+            title: "Mapbox token not set",
+            description: "Please provide a Mapbox access token in your environment variables.",
         });
-      }
+        return;
+    }
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: center,
+      zoom: zoom,
     });
+
+    map.current.on('click', (e) => {
+        new mapboxgl.Marker().setLngLat(e.lngLat).addTo(map.current!);
+    });
+
+    return () => {
+        map.current?.remove();
+    }
+  }, [center, zoom, toast]);
+  
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery || !map.current) return;
+
+    try {
+        const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?access_token=${mapboxgl.accessToken}`);
+        const data = await response.json();
+        if (data.features && data.features.length > 0) {
+            const coordinates = data.features[0].center;
+            map.current.flyTo({
+                center: coordinates,
+                zoom: 14
+            });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Location not found",
+                description: "Please try a different search query.",
+            });
+        }
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Geocoding error",
+            description: "Could not fetch location data.",
+        });
+    }
   };
 
-  const onUnmount = useCallback(() => {
-    setMap(null);
-  }, []);
-  
-  const onScriptError = () => {
-    toast({
-      variant: "destructive",
-      title: "Error loading Google Maps",
-      description: "There was an issue with the API key or project setup. Please check the browser console for more details.",
-    });
-  };
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background">
-      <LoadScript
-        googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}
-        libraries={libraries}
-        onLoad={onScriptLoad}
-        onError={onScriptError}
-        loadingElement={
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-                <div className="flex flex-col items-center gap-4">
-                    <Skeleton className="h-24 w-24 rounded-full" />
-                    <Skeleton className="h-8 w-64" />
-                    <p className="text-muted-foreground">Loading map script...</p>
-                </div>
-            </div>
-        }
-      >
-        {isApiLoaded ? (
-          <GoogleMap
-            mapContainerStyle={containerStyle}
-            center={center}
-            zoom={zoom}
-            onLoad={onMapLoad}
-            onUnmount={onUnmount}
-            onClick={onMapClick}
-            options={{
-              streetViewControl: false,
-              mapTypeControl: false,
-              fullscreenControl: false,
-            }}
-          >
-            {markers.map((marker, index) => (
-              <Marker key={index} position={marker} />
-            ))}
-          </GoogleMap>
-        ) : (
-            <div className="flex h-full w-full items-center justify-center bg-muted">
-                <p>Waiting for map...</p>
-            </div>
-        )}
-      </LoadScript>
-
+      <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
       <div className="absolute top-4 left-4 z-10">
         <Card className="w-full max-w-sm shadow-2xl bg-card/90 backdrop-blur-sm">
           <CardHeader>
@@ -135,10 +97,9 @@ export default function MapExplorerPage() {
                 placeholder="e.g., 'Eiffel Tower'" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                disabled={!isApiLoaded}
                 aria-label="Location Search"
               />
-              <Button type="submit" size="icon" disabled={!isApiLoaded} aria-label="Search">
+              <Button type="submit" size="icon" aria-label="Search">
                 <Search className="h-4 w-4" />
               </Button>
             </form>
