@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useRef, useState, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
@@ -8,6 +9,14 @@ import { Search, Mic, Layers, Send, Compass, Loader } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
 import { search } from '@/ai/flows/search-flow';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -17,16 +26,17 @@ const containerStyle = {
 };
 
 const initialCenter: [number, number] = [-118.7323, 36.5683];
+const initialZoom = 2;
+const initialStyle = 'mapbox://styles/mapbox/standard';
 
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [center] = useState(initialCenter);
-  const [zoom] = useState(2); // Start more zoomed out for a globe view
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const searchMarker = useRef<mapboxgl.Marker | null>(null);
+  const [mapStyle, setMapStyle] = useState(initialStyle);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -41,28 +51,43 @@ export default function MapExplorerPage() {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/standard', // Using a style that supports 3D
-      center: center,
-      zoom: zoom,
-      pitch: 45, // Initial pitch for a 3D perspective
+      style: mapStyle,
+      center: initialCenter,
+      zoom: initialZoom,
+      pitch: 45,
     });
 
+    const setupTerrain = () => {
+      if (map.current?.getSource('mapbox-dem')) {
+        map.current?.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+      } else {
+        map.current?.addSource('mapbox-dem', {
+          'type': 'raster-dem',
+          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          'tileSize': 512,
+          'maxzoom': 14
+        });
+        map.current?.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+      }
+    };
+
     map.current.on('style.load', () => {
-      map.current?.addSource('mapbox-dem', {
-        'type': 'raster-dem',
-        'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-        'tileSize': 512,
-        'maxzoom': 14
-      });
-      map.current?.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        setupTerrain();
     });
     
     map.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-left');
 
     return () => {
         map.current?.remove();
+        map.current = null;
     }
-  }, [center, zoom, toast]);
+  }, []);
+
+  useEffect(() => {
+    if (map.current) {
+      map.current.setStyle(mapStyle);
+    }
+  }, [mapStyle]);
 
   const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -99,15 +124,38 @@ export default function MapExplorerPage() {
     }
   };
 
+  const mapStyles = [
+    { name: 'Standard', value: 'mapbox://styles/mapbox/standard' },
+    { name: 'Streets', value: 'mapbox://styles/mapbox/streets-v12' },
+    { name: 'Outdoors', value: 'mapbox://styles/mapbox/outdoors-v12' },
+    { name: 'Light', value: 'mapbox://styles/mapbox/light-v11' },
+    { name: 'Dark', value: 'mapbox://styles/mapbox/dark-v11' },
+    { name: 'Satellite', value: 'mapbox://styles/mapbox/satellite-v9' },
+    { name: 'Satellite Streets', value: 'mapbox://styles/mapbox/satellite-streets-v12' },
+  ];
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
       
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
         <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-md flex flex-col">
-            <Button variant="ghost" size="icon" className="p-2 w-10 h-10">
-                <Layers className="h-5 w-5" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="p-2 w-10 h-10">
+                    <Layers className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuLabel>Map Styles</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {mapStyles.map((style) => (
+                  <DropdownMenuItem key={style.value} onSelect={() => setMapStyle(style.value)}>
+                    {style.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="ghost" size="icon" className="p-2 w-10 h-10">
                 <Send className="h-5 w-5" />
             </Button>
