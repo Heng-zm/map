@@ -30,38 +30,46 @@ export default function MapExplorerPage() {
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     
-    const checkMapbox = () => {
-      if (typeof window.mapboxgl !== 'undefined') {
-        window.mapboxgl.accessToken = MAPBOX_TOKEN;
-        map.current = new window.mapboxgl.Map({
-          container: mapContainer.current!,
-          style: 'mapbox://styles/mapbox/streets-v12',
-          center: [lng, lat],
-          zoom: zoom,
-        });
-
-        map.current.on('load', () => {
-          setMapLoaded(true);
-        });
+    const initializeMap = () => {
+        if (typeof window.mapboxgl !== 'undefined') {
+            window.mapboxgl.accessToken = MAPBOX_TOKEN;
+            map.current = new window.mapboxgl.Map({
+              container: mapContainer.current!,
+              style: 'mapbox://styles/mapbox/streets-v12',
+              center: [lng, lat],
+              zoom: zoom,
+            });
     
-        map.current.on('move', () => {
-          setLng(map.current.getCenter().lng.toFixed(4));
-          setLat(map.current.getCenter().lat.toFixed(4));
-          setZoom(map.current.getZoom().toFixed(2));
-        });
-
-        map.current.on('click', (e: any) => {
-            const { lng, lat } = e.lngLat;
-            setMarkers(prevMarkers => [...prevMarkers, { lng, lat }]);
-        });
-      } else {
-        setTimeout(checkMapbox, 100);
-      }
+            map.current.on('load', () => {
+              setMapLoaded(true);
+            });
+        
+            map.current.on('move', () => {
+              setLng(map.current.getCenter().lng.toFixed(4));
+              setLat(map.current.getCenter().lat.toFixed(4));
+              setZoom(map.current.getZoom().toFixed(2));
+            });
+    
+            map.current.on('click', (e: any) => {
+                const { lng, lat } = e.lngLat;
+                setMarkers(prevMarkers => [...prevMarkers, { lng, lat }]);
+            });
+        }
     };
+
+    const script = document.querySelector('script[src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"]');
     
-    checkMapbox();
+    if (script) {
+        if (window.mapboxgl) {
+            initializeMap();
+        } else {
+            script.addEventListener('load', initializeMap);
+        }
+    }
+
 
     return () => {
+      script?.removeEventListener('load', initializeMap);
       map.current?.remove();
       map.current = null;
     }
