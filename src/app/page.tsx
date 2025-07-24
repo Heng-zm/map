@@ -4,9 +4,10 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Mic, Layers, Send, Compass } from 'lucide-react';
+import { Search, Mic, Layers, Send, Compass, Loader } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
+import { search } from '@/ai/flows/search-flow';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -23,6 +24,9 @@ export default function MapExplorerPage() {
   const [center] = useState(initialCenter);
   const [zoom] = useState(2); // Start more zoomed out for a globe view
   const { toast } = useToast();
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const searchMarker = useRef<mapboxgl.Marker | null>(null);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -60,6 +64,41 @@ export default function MapExplorerPage() {
     }
   }, [center, zoom, toast]);
 
+  const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!query || !map.current) return;
+    setLoading(true);
+
+    try {
+      const result = await search({ query });
+
+      if (searchMarker.current) {
+        searchMarker.current.remove();
+      }
+
+      map.current.flyTo({
+        center: [result.long, result.lat],
+        zoom: result.zoom,
+        pitch: 45,
+        essential: true,
+      });
+
+      searchMarker.current = new mapboxgl.Marker()
+        .setLngLat([result.long, result.lat])
+        .addTo(map.current);
+
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Search Failed",
+        description: "Could not find the requested location. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
@@ -81,12 +120,19 @@ export default function MapExplorerPage() {
       </div>
 
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[90%] max-w-lg">
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-2 flex items-center gap-2">
-          <Search className="h-5 w-5 text-muted-foreground ml-2" />
+        <form onSubmit={handleSearch} className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-2 flex items-center gap-2">
+          {loading ? (
+            <Loader className="h-5 w-5 text-muted-foreground ml-2 animate-spin" />
+          ) : (
+            <Search className="h-5 w-5 text-muted-foreground ml-2" />
+          )}
           <Input 
             placeholder="Search Maps" 
             className="flex-1 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base"
             aria-label="Search Maps"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            disabled={loading}
           />
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
             <Mic className="h-5 w-5" />
@@ -95,7 +141,7 @@ export default function MapExplorerPage() {
             <AvatarImage src="https://placehold.co/40x40.png" alt="User" data-ai-hint="user avatar" />
             <AvatarFallback>U</AvatarFallback>
           </Avatar>
-        </div>
+        </form>
       </div>
     </div>
   );
