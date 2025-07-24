@@ -19,6 +19,7 @@ const SearchOutputSchema = z.object({
   lat: z.number().describe('The latitude of the found location.'),
   long: z.number().describe('The longitude of the found location.'),
   zoom: z.number().describe('A recommended zoom level for the map.'),
+  description: z.string().describe('A brief, interesting description of the location.'),
 });
 export type SearchOutput = z.infer<typeof SearchOutputSchema>;
 
@@ -32,8 +33,8 @@ const prompt = ai.definePrompt({
   name: 'searchPrompt',
   input: {schema: SearchInputSchema},
   output: {schema: SearchOutputSchema},
-  prompt: `You are a helpful assistant that can find places on a map.
-The user will provide a search query and you will return the latitude, longitude, and a recommended zoom level for the map.
+  prompt: `You are a helpful assistant that can find places on a map and provide a brief description of them.
+The user will provide a search query and you will return the latitude, longitude, a recommended zoom level for the map, and a short, interesting description of the place.
 
 Search Query: {{{query}}}`,
 });

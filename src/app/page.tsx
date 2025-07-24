@@ -108,8 +108,13 @@ export default function MapExplorerPage() {
         essential: true,
       });
 
+      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+        `<h3>${query}</h3><p>${result.description}</p>`
+      );
+
       searchMarker.current = new mapboxgl.Marker()
         .setLngLat([result.long, result.lat])
+        .setPopup(popup)
         .addTo(map.current);
 
     } catch (error) {
