@@ -134,6 +134,9 @@ export default function MapExplorerPage() {
             onChange={(e) => setQuery(e.target.value)}
             disabled={loading}
           />
+          <Button type="submit" variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={loading}>
+            <Send className="h-5 w-5" />
+          </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
             <Mic className="h-5 w-5" />
           </Button>
