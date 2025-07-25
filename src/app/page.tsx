@@ -75,6 +75,9 @@ export default function MapExplorerPage() {
   const [activeFilter, setActiveFilter] = useState('All');
   const droppedMarker = useRef<mapboxgl.Marker | null>(null);
   const [directionsLoading, setDirectionsLoading] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
+  const locationWatcher = useRef<number | null>(null);
+  const userLocationMarker = useRef<mapboxgl.Marker | null>(null);
 
 
   const createMarkerElement = (place: Place) => {
@@ -330,6 +333,75 @@ export default function MapExplorerPage() {
     }
   };
 
+  const handleRealTimeLocation = () => {
+    if (isTracking) {
+      setIsTracking(false);
+      if (locationWatcher.current) {
+        navigator.geolocation.clearWatch(locationWatcher.current);
+        locationWatcher.current = null;
+      }
+      if (userLocationMarker.current) {
+        userLocationMarker.current.remove();
+        userLocationMarker.current = null;
+      }
+       if (map.current?.getLayer('puck')) {
+        map.current.removeLayer('puck');
+      }
+      return;
+    }
+
+    setIsTracking(true);
+    locationWatcher.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const lngLat: [number, number] = [longitude, latitude];
+
+        if (!map.current) return;
+        
+        if (map.current.getLayer('puck')) {
+            (map.current.getSource('puck') as mapboxgl.GeoJSONSource).setData({
+                type: 'Point',
+                coordinates: lngLat
+            });
+        } else {
+            map.current.addSource('puck', {
+                type: 'geojson',
+                data: {
+                    type: 'Point',
+                    coordinates: lngLat
+                }
+            });
+            map.current.addLayer({
+                id: 'puck',
+                type: 'circle',
+                source: 'puck',
+                paint: {
+                    'circle-radius': 10,
+                    'circle-color': '#3b82f6',
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#ffffff'
+                }
+            });
+        }
+
+        map.current.flyTo({ center: lngLat, zoom: 15 });
+      },
+      (error) => {
+        toast({
+          variant: 'destructive',
+          title: 'Location tracking failed',
+          description: error.message,
+        });
+        setIsTracking(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0,
+      }
+    );
+  };
+
   const handleSheetClose = (open: boolean) => {
     if (!open) {
       setSelectedPlace(null);
@@ -362,7 +434,10 @@ export default function MapExplorerPage() {
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
       
-       <div className="absolute top-4 right-4 z-10">
+       <div className="absolute top-4 right-4 z-10 flex gap-2">
+        <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm" onClick={handleRealTimeLocation} >
+            <Navigation className={`h-5 w-5 ${isTracking ? 'text-blue-500' : ''}`} />
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm">
