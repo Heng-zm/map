@@ -347,6 +347,9 @@ export default function MapExplorerPage() {
        if (map.current?.getLayer('puck')) {
         map.current.removeLayer('puck');
       }
+       if (map.current?.getSource('puck')) {
+        map.current.removeSource('puck');
+      }
       return;
     }
 
@@ -358,7 +361,7 @@ export default function MapExplorerPage() {
 
         if (!map.current) return;
         
-        if (map.current.getLayer('puck')) {
+        if (map.current.getSource('puck')) {
             (map.current.getSource('puck') as mapboxgl.GeoJSONSource).setData({
                 type: 'Point',
                 coordinates: lngLat
