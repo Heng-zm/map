@@ -33,8 +33,8 @@ const PlaceSchema = z.object({
     website: z.string().describe("The website of the place."),
     photosBy: z.string().describe("The source of the photos."),
     posts: z.array(z.object({
-        date: z.string().describe("The date of the post."),
-        text: z.string().describe("The text of the post."),
+        date: z.string().describe("The date of the post, in a human-readable format like 'June 26'."),
+        text: z.string().describe("The text content of the post."),
         image: z.string().optional().describe("An optional placeholder image URL for the post from `https://placehold.co/100x100.png`."),
     })).describe("A list of recent posts from the place.")
 });

@@ -375,8 +375,9 @@ export default function MapExplorerPage() {
 
         if (!map.current) return;
         
-        if (map.current.getSource('puck')) {
-            (map.current.getSource('puck') as mapboxgl.GeoJSONSource).setData({
+        const source = map.current.getSource('puck') as mapboxgl.GeoJSONSource;
+        if (source) {
+            source.setData({
                 type: 'Feature',
                 properties: {},
                 geometry: {
@@ -520,6 +521,9 @@ export default function MapExplorerPage() {
                     <div className="space-y-6">
                       <div className="relative h-48 w-full rounded-lg overflow-hidden">
                         <img src={selectedPlace.images[0] || 'https://placehold.co/600x400.png'} alt={selectedPlace.name} className="h-full w-full object-cover" data-ai-hint="restaurant food" />
+                         <Button size="icon" variant="outline" className="absolute top-2 right-2 bg-white/80" onClick={handleShare}>
+                          <Navigation className="h-4 w-4 -rotate-45" />
+                        </Button>
                       </div>
                       <div className="space-y-2">
                         <h2 className="text-2xl font-bold">{selectedPlace.name}</h2>
@@ -578,14 +582,6 @@ export default function MapExplorerPage() {
                             </div>
                           ))}
                         </div>
-                      </div>
-                      <div className="p-4 border-t grid grid-cols-2 gap-2">
-                        <Button variant="outline" className="w-full" onClick={handleBackToList}>
-                          Back to list
-                        </Button>
-                        <Button className="w-full" onClick={() => handleDirections(selectedPlace.coordinates)}>
-                          <Navigation className="mr-2 h-4 w-4" />Directions
-                        </Button>
                       </div>
                     </div>
                   ) : (
