@@ -5,10 +5,8 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, X, Map as MapIcon, Send, Clock, Star, Tag, ChevronDown, Phone, Globe, Calendar, MoreHorizontal, PersonStanding, Car, LocateFixed, Compass } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { search, SearchOutput } from '@/ai/flows/search-flow';
 import { listPlaces, ListPlacesInput, ListPlacesOutput } from '@/ai/flows/list-places-flow';
 import {
   DropdownMenu,
@@ -18,8 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -307,15 +304,16 @@ export default function MapExplorerPage() {
       )}
 
       <Sheet open={sheetOpen} onOpenChange={handleSheetClose}>
-          <SheetContent side="bottom" className="h-[90vh] rounded-t-xl flex flex-col p-0" overlayClassName="bg-transparent">
-             <SheetHeader className="p-4 border-b">
+          <SheetContent side="bottom" className="h-[90vh] rounded-t-xl flex flex-col p-0">
+             <SheetHeader className="p-4 pt-2 border-b">
+                <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-2" />
                 <SheetTitle className="sr-only">Locations</SheetTitle>
                 <form onSubmit={handleFormSubmit}>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input placeholder="Search for a place or address" className="pl-10 pr-20" value={query} onChange={(e) => setQuery(e.target.value)} />
+                    <Input placeholder="Search for a place or address" className="pl-10 pr-12" value={query} onChange={(e) => setQuery(e.target.value)} />
                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleMyLocation}><LocateFixed className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleMyLocation}><LocateFixed className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 </form>
