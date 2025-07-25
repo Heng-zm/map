@@ -5,9 +5,12 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar, Clock, X } from 'lucide-react';
+import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar, Clock, X, Navigation } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { listPlaces, ListPlacesInput, ListPlacesOutput } from '@/ai/flows/list-places-flow';
+import { listPlaces } from '@/ai/flows/list-places-flow';
+import { getDirections } from '@/ai/flows/get-directions-flow';
+import type { ListPlacesInput, ListPlacesOutput } from '@/ai/schemas';
+import type { GetDirectionsInput } from '@/ai/schemas';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +74,7 @@ export default function MapExplorerPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
   const droppedMarker = useRef<mapboxgl.Marker | null>(null);
+  const [directionsLoading, setDirectionsLoading] = useState(false);
 
 
   const createMarkerElement = (place: Place) => {
@@ -204,6 +208,86 @@ export default function MapExplorerPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDirections = () => {
+    if (!selectedPlace) return;
+
+    setDirectionsLoading(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          const origin: [number, number] = [longitude, latitude];
+          const destination = selectedPlace.coordinates;
+
+          try {
+            const directions = await getDirections({ origin, destination });
+            
+            if (map.current?.getSource('route')) {
+                map.current.removeLayer('route');
+                map.current.removeSource('route');
+            }
+
+            map.current?.addSource('route', {
+              'type': 'geojson',
+              'data': {
+                'type': 'Feature',
+                'properties': {},
+                'geometry': {
+                  'type': 'LineString',
+                  'coordinates': directions.route,
+                }
+              }
+            });
+
+            map.current?.addLayer({
+              'id': 'route',
+              'type': 'line',
+              'source': 'route',
+              'layout': {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              'paint': {
+                'line-color': '#3b82f6',
+                'line-width': 6
+              }
+            });
+            
+            const bounds = new mapboxgl.LngLatBounds();
+            directions.route.forEach(point => bounds.extend(point as [number, number]));
+            map.current?.fitBounds(bounds, { padding: 80 });
+
+            setSheetOpen(false);
+
+          } catch (error) {
+             toast({
+              variant: "destructive",
+              title: "Directions failed",
+              description: "Could not get directions. Please try again.",
+            });
+          } finally {
+            setDirectionsLoading(false);
+          }
+        },
+        () => {
+          toast({
+            variant: "destructive",
+            title: "Geolocation failed",
+            description: "Could not get your location.",
+          });
+          setDirectionsLoading(false);
+        }
+      );
+    } else {
+       toast({
+        variant: "destructive",
+        title: "Geolocation not supported",
+        description: "Your browser does not support geolocation.",
+      });
+      setDirectionsLoading(false);
     }
   };
   
@@ -344,7 +428,7 @@ export default function MapExplorerPage() {
                   {selectedPlace ? (
                     <div className="space-y-6">
                       <div className="relative h-48 w-full rounded-lg overflow-hidden">
-                        <img src={selectedPlace.images[0] || 'https://placehold.co/600x400.png'} alt={selectedPlace.name} className="h-full w-full object-cover" />
+                        <img src={selectedPlace.images[0] || 'https://placehold.co/600x400.png'} alt={selectedPlace.name} className="h-full w-full object-cover" data-ai-hint="restaurant food" />
                       </div>
                       <div className="space-y-2">
                         <h2 className="text-2xl font-bold">{selectedPlace.name}</h2>
@@ -377,7 +461,7 @@ export default function MapExplorerPage() {
                         <h3 className="font-semibold mb-2">Photos</h3>
                         <div className="grid grid-cols-3 gap-2">
                           {selectedPlace.images.map((img, i) => (
-                            <img key={i} src={img} alt={`${selectedPlace.name} photo ${i}`} className="rounded-lg object-cover aspect-square" />
+                            <img key={i} src={img} alt={`${selectedPlace.name} photo ${i}`} className="rounded-lg object-cover aspect-square" data-ai-hint="restaurant interior" />
                           ))}
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">Photos by {selectedPlace.photosBy}</p>
@@ -391,7 +475,7 @@ export default function MapExplorerPage() {
                           {selectedPlace.posts?.map((post, i) => (
                             <div key={i} className="flex gap-4">
                                <div className="w-20 h-20 bg-muted rounded-lg flex-shrink-0">
-                                {post.image && <img src={post.image} className="w-full h-full object-cover rounded-lg" />}
+                                {post.image && <img src={post.image} className="w-full h-full object-cover rounded-lg" data-ai-hint="food" />}
                               </div>
                               <div>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -439,9 +523,12 @@ export default function MapExplorerPage() {
                 </div>
               </ScrollArea>
               {selectedPlace ? (
-                <div className="p-4 border-t">
-                  <Button className="w-full" onClick={handleBackToList}>
+                <div className="p-4 border-t grid grid-cols-2 gap-2">
+                  <Button variant="outline" className="w-full" onClick={handleBackToList}>
                     Back to list
+                  </Button>
+                  <Button className="w-full" onClick={handleDirections} disabled={directionsLoading}>
+                    {directionsLoading ? 'Loading...' : <><Navigation className="mr-2 h-4 w-4" />Directions</>}
                   </Button>
                 </div>
               ) : (
@@ -458,5 +545,3 @@ export default function MapExplorerPage() {
     </div>
   );
 }
-
-    
