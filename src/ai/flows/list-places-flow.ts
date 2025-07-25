@@ -56,6 +56,7 @@ const prompt = ai.definePrompt({
 The user will provide a search query and you will return a list of places that match.
 For each place, provide all the information in the schema. Generate realistic but not necessarily real data for fields like phone, website, etc.
 For images, use placeholder URLs from https://placehold.co.
+Generate 3-5 realistic posts for each business, with dates from the last month.
 
 {{#if type}}
 Only return places of type: {{{type}}}.
