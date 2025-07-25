@@ -72,6 +72,19 @@ export default function MapExplorerPage() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
+  const droppedMarker = useRef<mapboxgl.Marker | null>(null);
+
+
+  const createMarkerElement = (place: Place) => {
+    const el = document.createElement('div');
+    el.className = 'marker';
+    el.style.backgroundImage = `url('https://placehold.co/40x40/f97316/ffffff.png?text=${place.type.charAt(0)}')`;
+    el.style.width = `40px`;
+    el.style.height = `40px`;
+    el.style.backgroundSize = '100%';
+    el.style.cursor = 'pointer';
+    return el;
+  }
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -100,6 +113,30 @@ export default function MapExplorerPage() {
       }
     });
 
+    map.current.on('click', (e) => {
+      if (droppedMarker.current) {
+        droppedMarker.current.remove();
+      }
+      
+      const newMarker = new mapboxgl.Marker({ draggable: true, color: '#3b82f6' })
+        .setLngLat(e.lngLat)
+        .addTo(map.current!);
+
+      newMarker.on('dragend', () => {
+        const lngLat = newMarker.getLngLat();
+        const locationQuery = `places near ${lngLat.lat}, ${lngLat.lng}`;
+        setQuery(`Dropped Pin`);
+        handleSearch(locationQuery, activeFilter);
+      });
+
+      droppedMarker.current = newMarker;
+
+      const lngLat = newMarker.getLngLat();
+      const locationQuery = `places near ${lngLat.lat}, ${lngLat.lng}`;
+      setQuery(`Dropped Pin`);
+      handleSearch(locationQuery, activeFilter);
+    });
+
     return () => {
         map.current?.remove();
         map.current = null;
@@ -114,24 +151,17 @@ export default function MapExplorerPage() {
 
   useEffect(() => {
     if (!map.current) return;
-    // Clear existing markers
     placeMarkers.current.forEach(m => m.remove());
     placeMarkers.current = [];
 
-    // Add new markers
     places.forEach(place => {
-        const el = document.createElement('div');
-        el.className = 'marker';
-        el.style.backgroundImage = `url('https://placehold.co/40x40/f97316/ffffff.png?text=${place.type.charAt(0)}')`;
-        el.style.width = `40px`;
-        el.style.height = `40px`;
-        el.style.backgroundSize = '100%';
-
+        const el = createMarkerElement(place);
         const marker = new mapboxgl.Marker(el)
             .setLngLat(place.coordinates as [number, number])
             .addTo(map.current!);
         
-        marker.getElement().addEventListener('click', () => {
+        marker.getElement().addEventListener('click', (e) => {
+            e.stopPropagation();
             setSelectedPlace(place);
             setSheetOpen(true);
             map.current?.flyTo({ center: place.coordinates as [number, number], zoom: 15 });
@@ -145,6 +175,11 @@ export default function MapExplorerPage() {
     setLoading(true);
     setSelectedPlace(null);
     setSheetOpen(true);
+
+    if (droppedMarker.current && searchQuery !== `Dropped Pin` && !searchQuery.startsWith('places near')) {
+        droppedMarker.current.remove();
+        droppedMarker.current = null;
+    }
 
     const searchOptions: ListPlacesInput = { query: searchQuery };
     if (filter && filter !== 'All') {
