@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, X, Map as MapIcon, Send, Clock, Star, Tag, ChevronDown, Phone, Globe, Calendar, MoreHorizontal, PersonStanding, Car, LocateFixed } from 'lucide-react';
+import { Search, X, Map as MapIcon, Send, Clock, Star, Tag, ChevronDown, Phone, Globe, Calendar, MoreHorizontal, PersonStanding, Car, LocateFixed, Compass } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
 import { search, SearchOutput } from '@/ai/flows/search-flow';
@@ -70,7 +70,7 @@ export default function MapExplorerPage() {
   const placeMarkers = useRef<mapboxgl.Marker[]>([]);
   const [mapStyle, setMapStyle] = useState(initialStyle);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
 
   useEffect(() => {
@@ -144,6 +144,7 @@ export default function MapExplorerPage() {
     if (!searchQuery || !map.current) return;
     setLoading(true);
     setSelectedPlace(null);
+    setSheetOpen(true);
 
     const searchOptions: ListPlacesInput = { query: searchQuery };
     if (filter && filter !== 'All') {
@@ -257,6 +258,18 @@ export default function MapExplorerPage() {
         </DropdownMenu>
       </div>
 
+      {!sheetOpen && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
+          <Button
+            size="lg"
+            className="rounded-full shadow-lg"
+            onClick={() => setSheetOpen(true)}
+          >
+            <Compass className="mr-2 h-5 w-5" />
+            Explore
+          </Button>
+        </div>
+      )}
 
       <Sheet open={sheetOpen} onOpenChange={handleSheetClose}>
           <SheetContent side="bottom" className="h-[90vh] rounded-t-xl flex flex-col p-0" overlayClassName="bg-transparent">
