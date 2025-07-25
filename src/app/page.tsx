@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar, Clock } from 'lucide-react';
+import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar, Clock, X } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { listPlaces, ListPlacesInput, ListPlacesOutput } from '@/ai/flows/list-places-flow';
 import {
@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -435,11 +435,19 @@ export default function MapExplorerPage() {
                   )}
                 </div>
               </ScrollArea>
-              {selectedPlace && (
+              {selectedPlace ? (
                 <div className="p-4 border-t">
                   <Button className="w-full" onClick={handleBackToList}>
                     Back to list
                   </Button>
+                </div>
+              ) : (
+                <div className="p-4 border-t">
+                  <SheetClose asChild>
+                    <Button variant="outline" className="w-full">
+                      Close
+                    </Button>
+                  </SheetClose>
                 </div>
               )}
           </SheetContent>
