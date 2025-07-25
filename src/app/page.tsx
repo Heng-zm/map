@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar } from 'lucide-react';
+import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar, Clock } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { listPlaces, ListPlacesInput, ListPlacesOutput } from '@/ai/flows/list-places-flow';
 import {
@@ -188,13 +188,18 @@ export default function MapExplorerPage() {
       setPlaces(result.places as Place[]);
 
       if (result.places.length > 0) {
-        const firstPlace = result.places[0];
-        map.current.flyTo({
-          center: firstPlace.coordinates as [number, number],
-          zoom: 12,
-          pitch: 45,
-          essential: true,
-        });
+        if (result.places.length === 1) {
+            map.current.flyTo({
+                center: result.places[0].coordinates as [number, number],
+                zoom: 12,
+                pitch: 45,
+                essential: true,
+            });
+        } else {
+            const bounds = new mapboxgl.LngLatBounds();
+            result.places.forEach(p => bounds.extend(p.coordinates as [number, number]));
+            map.current.fitBounds(bounds, { padding: 80, pitch: 45 });
+        }
       }
       
     } catch (error) {
@@ -255,6 +260,15 @@ export default function MapExplorerPage() {
     setSheetOpen(open);
   }
 
+  const handleBackToList = () => {
+    setSelectedPlace(null);
+    if (places.length > 1 && map.current) {
+        const bounds = new mapboxgl.LngLatBounds();
+        places.forEach(p => bounds.extend(p.coordinates as [number, number]));
+        map.current.fitBounds(bounds, { padding: 80, pitch: 45 });
+    }
+  }
+
   const mapStyles = [
     { name: 'Standard', value: 'mapbox://styles/mapbox/standard' },
     { name: 'Streets', value: 'mapbox://styles/mapbox/streets-v12' },
@@ -304,7 +318,7 @@ export default function MapExplorerPage() {
       )}
 
       <Sheet open={sheetOpen} onOpenChange={handleSheetClose}>
-          <SheetContent side="bottom" className="h-[90vh] rounded-t-xl flex flex-col p-0">
+          <SheetContent side="bottom" className="h-[90vh] rounded-t-xl flex flex-col p-0" overlayClassName="bg-black/20">
              <SheetHeader className="p-4 pt-2 border-b">
                 <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-2" />
                 <SheetTitle className="sr-only">Locations</SheetTitle>
@@ -313,7 +327,7 @@ export default function MapExplorerPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input placeholder="Search for a place or address" className="pl-10 pr-12" value={query} onChange={(e) => setQuery(e.target.value)} />
                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleMyLocation}><LocateFixed className="h-4 w-4" /></Button>
+                      <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={handleMyLocation}><LocateFixed className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 </form>
@@ -424,7 +438,7 @@ export default function MapExplorerPage() {
               </ScrollArea>
               {selectedPlace && (
                 <div className="p-4 border-t">
-                  <Button className="w-full" onClick={() => setSelectedPlace(null)}>
+                  <Button className="w-full" onClick={handleBackToList}>
                     Back to list
                   </Button>
                 </div>
