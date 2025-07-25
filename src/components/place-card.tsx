@@ -2,10 +2,11 @@
 'use client';
 
 import React from 'react';
-import { Place } from '@/lib/data';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
 import { Star } from 'lucide-react';
+import { Place } from '@/app/page';
+
 
 interface PlaceCardProps {
   place: Place;
@@ -17,13 +18,22 @@ export function PlaceCard({ place, onClick }: PlaceCardProps) {
     <div className="border rounded-lg overflow-hidden cursor-pointer" onClick={onClick}>
       <Carousel className="w-full">
         <CarouselContent>
-          {place.images.map((image, index) => (
-            <CarouselItem key={index}>
-              <img src={image} alt={`${place.name} image ${index + 1}`} className="w-full h-40 object-cover" data-ai-hint="restaurant interior" />
+          {place.images && place.images.length > 0 ? (
+            place.images.map((image, index) => (
+              <CarouselItem key={index}>
+                <img src={image} alt={`${place.name} image ${index + 1}`} className="w-full h-40 object-cover" data-ai-hint="restaurant interior" />
+              </CarouselItem>
+            ))
+           ) : (
+            <CarouselItem>
+              <div className="w-full h-40 bg-muted flex items-center justify-center">
+                <span className="text-muted-foreground">No Image</span>
+              </div>
             </CarouselItem>
-          ))}
+           )
+          }
         </CarouselContent>
-        {place.images.length > 1 && (
+        {place.images && place.images.length > 1 && (
           <>
             <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2" />
             <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2" />

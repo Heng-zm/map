@@ -9,6 +9,7 @@ import { Search, X, Map as MapIcon, Send, Clock, Star, Tag, ChevronDown, Phone, 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
 import { search, SearchOutput } from '@/ai/flows/search-flow';
+import { listPlaces, ListPlacesOutput } from '@/ai/flows/list-places-flow';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { PlaceCard } from '@/components/place-card';
-import { places, Place } from '@/lib/data';
+
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -36,6 +37,28 @@ const initialCenter: [number, number] = [-73.9876, 40.7484];
 const initialZoom = 13;
 const initialStyle = 'mapbox://styles/mapbox/standard';
 
+export interface Place {
+  id: string;
+  name: string;
+  description: string;
+  coordinates: [number, number];
+  rating: number;
+  reviews: number;
+  type: string;
+  images: string[];
+  hours: string;
+  tags: string[];
+  phone: string;
+  website: string;
+  icon?: string;
+  photosBy: string;
+  posts: {
+    date: string;
+    text: string;
+    image?: string;
+  }[];
+}
+
 
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
@@ -43,6 +66,7 @@ export default function MapExplorerPage() {
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [places, setPlaces] = useState<Place[]>([]);
   const placeMarkers = useRef<mapboxgl.Marker[]>([]);
   const [mapStyle, setMapStyle] = useState(initialStyle);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
@@ -75,28 +99,6 @@ export default function MapExplorerPage() {
       }
     });
 
-    map.current.on('load', () => {
-        places.forEach(place => {
-            const el = document.createElement('div');
-            el.className = 'marker';
-            el.style.backgroundImage = `url('https://placehold.co/40x40/f97316/ffffff.png?text=${place.icon ? "R" : "P" }')`;
-            el.style.width = `40px`;
-            el.style.height = `40px`;
-            el.style.backgroundSize = '100%';
-
-            const marker = new mapboxgl.Marker(el)
-                .setLngLat(place.coordinates as [number, number])
-                .addTo(map.current!);
-            
-            marker.getElement().addEventListener('click', () => {
-                setSelectedPlace(place);
-                setSheetOpen(true);
-                map.current?.flyTo({ center: place.coordinates as [number, number], zoom: 15 });
-            });
-            placeMarkers.current.push(marker);
-        });
-    });
-
     return () => {
         map.current?.remove();
         map.current = null;
@@ -109,48 +111,54 @@ export default function MapExplorerPage() {
     }
   }, [mapStyle]);
 
+  useEffect(() => {
+    if (!map.current) return;
+    // Clear existing markers
+    placeMarkers.current.forEach(m => m.remove());
+    placeMarkers.current = [];
+
+    // Add new markers
+    places.forEach(place => {
+        const el = document.createElement('div');
+        el.className = 'marker';
+        el.style.backgroundImage = `url('https://placehold.co/40x40/f97316/ffffff.png?text=R')`;
+        el.style.width = `40px`;
+        el.style.height = `40px`;
+        el.style.backgroundSize = '100%';
+
+        const marker = new mapboxgl.Marker(el)
+            .setLngLat(place.coordinates as [number, number])
+            .addTo(map.current!);
+        
+        marker.getElement().addEventListener('click', () => {
+            setSelectedPlace(place);
+            setSheetOpen(true);
+            map.current?.flyTo({ center: place.coordinates as [number, number], zoom: 15 });
+        });
+        placeMarkers.current.push(marker);
+    });
+  }, [places]);
+
   const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!query || !map.current) return;
     setLoading(true);
+    setSelectedPlace(null);
 
     try {
-      const result = await search({ query });
+      const result = await listPlaces({ query });
+      setPlaces(result.places as Place[]);
 
-      if (placeMarkers.current) {
-        placeMarkers.current.forEach(m => m.remove());
-        placeMarkers.current = [];
+      if (result.places.length > 0) {
+        const firstPlace = result.places[0];
+        map.current.flyTo({
+          center: firstPlace.coordinates as [number, number],
+          zoom: 12,
+          pitch: 45,
+          essential: true,
+        });
       }
       
-      setSelectedPlace({
-        id: 'search-result',
-        name: query,
-        description: result.description,
-        coordinates: [result.long, result.lat],
-        rating: 0,
-        reviews: 0,
-        type: 'search-result',
-        images: [],
-        hours: '',
-        tags: [],
-        phone: '',
-        website: '',
-        photosBy: '',
-        posts: [],
-      })
-      
-      map.current.flyTo({
-        center: [result.long, result.lat],
-        zoom: result.zoom,
-        pitch: 45,
-        essential: true,
-      });
-      
-      new mapboxgl.Marker()
-        .setLngLat([result.long, result.lat])
-        .addTo(map.current);
-      setSheetOpen(true);
-
     } catch (error) {
       console.error(error);
       toast({
@@ -290,14 +298,24 @@ export default function MapExplorerPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h2 className="text-xl font-semibold">Popular near you</h2>
-                        <Button variant="ghost" size="sm">See all</Button>
-                      </div>
-                      {places.map((place) => (
-                        <PlaceCard key={place.id} place={place} onClick={() => { setSelectedPlace(place); map.current?.flyTo({ center: place.coordinates as [number, number], zoom: 15 }); }} />
-                      ))}
+                     <div className="space-y-4">
+                      { loading ? (
+                        <div>Loading places...</div>
+                      ) : places.length > 0 ? (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <h2 className="text-xl font-semibold">Results for "{query}"</h2>
+                            <Button variant="ghost" size="sm">See all</Button>
+                          </div>
+                          {places.map((place) => (
+                            <PlaceCard key={place.id} place={place} onClick={() => { setSelectedPlace(place); map.current?.flyTo({ center: place.coordinates as [number, number], zoom: 15 }); }} />
+                          ))}
+                        </>
+                      ) : (
+                        <div className="text-center py-10">
+                            <p>Search for something to get started.</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
