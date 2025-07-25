@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar, Clock, Navigation } from 'lucide-react';
+import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar, Clock, Navigation, Share2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { listPlaces } from '@/ai/flows/list-places-flow';
 import { getDirections } from '@/ai/flows/get-directions-flow';
@@ -109,11 +109,20 @@ export default function MapExplorerPage() {
         return;
     }
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlLng = urlParams.get('lng');
+    const urlLat = urlParams.get('lat');
+    const urlZoom = urlParams.get('zoom');
+    
+    const mapCenter: [number, number] = urlLng && urlLat ? [parseFloat(urlLng), parseFloat(urlLat)] : initialCenter;
+    const mapZoom = urlZoom ? parseFloat(urlZoom) : initialZoom;
+
+
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: mapStyle,
-      center: initialCenter,
-      zoom: initialZoom,
+      center: mapCenter,
+      zoom: mapZoom,
       pitch: 45,
     });
     
@@ -307,7 +316,7 @@ export default function MapExplorerPage() {
   
   const handleFilterClick = (filter: string) => {
     setActiveFilter(filter);
-    if(query) {
+    if(query && query !== "Nearby places" && query !== "Dropped Pin") {
       handleSearch(query, filter);
     }
   }
@@ -347,10 +356,6 @@ export default function MapExplorerPage() {
       if (locationWatcher.current) {
         navigator.geolocation.clearWatch(locationWatcher.current);
         locationWatcher.current = null;
-      }
-      if (userLocationMarker.current) {
-        userLocationMarker.current.remove();
-        userLocationMarker.current = null;
       }
        if (map.current?.getLayer('puck')) {
         map.current.removeLayer('puck');
@@ -428,6 +433,42 @@ export default function MapExplorerPage() {
         map.current.fitBounds(bounds, { padding: 80, pitch: 45 });
     }
   }
+
+  const handleShare = async () => {
+    if (!selectedPlace) return;
+
+    const [lng, lat] = selectedPlace.coordinates;
+    const zoom = map.current?.getZoom() || initialZoom;
+    const url = new URL(window.location.href);
+    url.searchParams.set('lng', lng.toString());
+    url.searchParams.set('lat', lat.toString());
+    url.searchParams.set('zoom', zoom.toString());
+    
+    const shareData = {
+      title: `Check out ${selectedPlace.name}`,
+      text: `Here's a cool place I found: ${selectedPlace.name}`,
+      url: url.toString(),
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(url.toString());
+        toast({
+          title: "Link Copied",
+          description: "The link to this location has been copied to your clipboard.",
+        });
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
+      toast({
+        variant: "destructive",
+        title: "Sharing Failed",
+        description: "Could not share this location. Please try again.",
+      });
+    }
+  };
 
   const mapStyles = [
     { name: 'Standard', value: 'mapbox://styles/mapbox/standard' },
@@ -607,9 +648,13 @@ export default function MapExplorerPage() {
                 </div>
               </ScrollArea>
               {selectedPlace ? (
-                <div className="p-4 border-t grid grid-cols-2 gap-2">
+                <div className="p-4 border-t grid grid-cols-3 gap-2">
                   <Button variant="outline" className="w-full" onClick={handleBackToList}>
                     Back to list
+                  </Button>
+                  <Button variant="outline" className="w-full" onClick={handleShare}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share
                   </Button>
                   <Button className="w-full" onClick={handleDirections} disabled={directionsLoading}>
                     {directionsLoading ? 'Loading...' : <><Navigation className="mr-2 h-4 w-4" />Directions</>}
