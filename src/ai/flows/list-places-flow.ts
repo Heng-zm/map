@@ -21,7 +21,7 @@ const PlaceSchema = z.object({
     id: z.string().describe("A unique identifier for the place."),
     name: z.string().describe("The name of the place."),
     description: z.string().describe("A brief, interesting description of the place."),
-    coordinates: z.array(z.number()).length(2).describe("The longitude and latitude of the place."),
+    coordinates: z.array(z.number()).length(2).describe("The longitude and latitude of the place, in that order: [longitude, latitude]."),
     rating: z.number().describe("The rating of the place, from 1 to 5."),
     reviews: z.number().describe("The number of reviews for the place."),
     type: z.string().describe("The type of the place, e.g. 'American Restaurant'."),
