@@ -43,17 +43,3 @@ export const ListPlacesOutputSchema = z.object({
   places: z.array(PlaceSchema).describe("A list of places that match the search query."),
 });
 export type ListPlacesOutput = z.infer<typeof ListPlacesOutputSchema>;
-
-
-export const SearchInputSchema = z.object({
-  query: z.string().describe('The search query from the user.'),
-});
-export type SearchInput = z.infer<typeof SearchInputSchema>;
-
-export const SearchOutputSchema = z.object({
-  lat: z.number().describe('The latitude of the found location.'),
-  long: z.number().describe('The longitude of the found location.'),
-  zoom: z.number().describe('A recommended zoom level for the map.'),
-  description: z.string().describe('A brief, interesting description of the location.'),
-});
-export type SearchOutput = z.infer<typeof SearchOutputSchema>;

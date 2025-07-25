@@ -91,6 +91,13 @@ export default function MapExplorerPage() {
     return el;
   }
 
+  const clearDroppedMarker = () => {
+    if (droppedMarker.current) {
+        droppedMarker.current.remove();
+        droppedMarker.current = null;
+    }
+  }
+
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     if (!mapboxgl.accessToken) {
@@ -119,9 +126,7 @@ export default function MapExplorerPage() {
     });
 
     map.current.on('click', (e) => {
-      if (droppedMarker.current) {
-        droppedMarker.current.remove();
-      }
+      clearDroppedMarker();
       
       const newMarker = new mapboxgl.Marker({ draggable: true, color: '#3b82f6' })
         .setLngLat(e.lngLat)
@@ -182,9 +187,8 @@ export default function MapExplorerPage() {
     setSelectedPlace(null);
     if (!sheetOpen) setSheetOpen(true);
 
-    if (droppedMarker.current && searchQuery !== `Dropped Pin` && !searchQuery.startsWith('places near')) {
-        droppedMarker.current.remove();
-        droppedMarker.current = null;
+    if (searchQuery !== `Dropped Pin` && !searchQuery.startsWith('places near')) {
+      clearDroppedMarker();
     }
 
     const searchOptions: ListPlacesInput = { query: searchQuery };
@@ -296,7 +300,9 @@ export default function MapExplorerPage() {
   
   const handleFormSubmit = (e: React.FormEvent<HTMLFormEvent>) => {
     e.preventDefault();
-    handleSearch(query, activeFilter);
+    if (query) {
+      handleSearch(query, activeFilter);
+    }
   };
   
   const handleFilterClick = (filter: string) => {
@@ -308,6 +314,7 @@ export default function MapExplorerPage() {
 
   const handleMyLocation = () => {
     if (navigator.geolocation) {
+      setLoading(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
@@ -322,6 +329,7 @@ export default function MapExplorerPage() {
             title: "Geolocation failed",
             description: "Could not get your location.",
           });
+          setLoading(false);
         }
       );
     } else {
