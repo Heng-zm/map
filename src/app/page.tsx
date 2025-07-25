@@ -9,7 +9,7 @@ import { Search, X, Map as MapIcon, Send, Clock, Star, Tag, ChevronDown, Phone, 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
 import { search, SearchOutput } from '@/ai/flows/search-flow';
-import { listPlaces, ListPlacesOutput } from '@/ai/flows/list-places-flow';
+import { listPlaces, ListPlacesInput, ListPlacesOutput } from '@/ai/flows/list-places-flow';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +71,7 @@ export default function MapExplorerPage() {
   const [mapStyle, setMapStyle] = useState(initialStyle);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [sheetOpen, setSheetOpen] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('All');
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -139,14 +140,18 @@ export default function MapExplorerPage() {
     });
   }, [places]);
 
-  const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!query || !map.current) return;
+  const handleSearch = async (searchQuery: string, filter?: string) => {
+    if (!searchQuery || !map.current) return;
     setLoading(true);
     setSelectedPlace(null);
 
+    const searchOptions: ListPlacesInput = { query: searchQuery };
+    if (filter && filter !== 'All') {
+      searchOptions.type = filter;
+    }
+
     try {
-      const result = await listPlaces({ query });
+      const result = await listPlaces(searchOptions);
       setPlaces(result.places as Place[]);
 
       if (result.places.length > 0) {
@@ -170,6 +175,18 @@ export default function MapExplorerPage() {
       setLoading(false);
     }
   };
+  
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    handleSearch(query, activeFilter);
+  };
+  
+  const handleFilterClick = (filter: string) => {
+    setActiveFilter(filter);
+    if(query) {
+      handleSearch(query, filter);
+    }
+  }
 
   const handleSheetClose = (open: boolean) => {
     if (!open) {
@@ -187,6 +204,8 @@ export default function MapExplorerPage() {
     { name: 'Satellite', value: 'mapbox://styles/mapbox/satellite-v9' },
     { name: 'Satellite Streets', value: 'mapbox://styles/mapbox/satellite-streets-v12' },
   ];
+
+  const filters = ['All', 'Restaurants', 'Hotels', 'Gas'];
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans">
@@ -216,7 +235,7 @@ export default function MapExplorerPage() {
           <SheetContent side="bottom" className="h-[90vh] rounded-t-xl flex flex-col p-0" overlayClassName="bg-transparent">
              <SheetHeader className="p-4 border-b">
                 <SheetTitle className="sr-only">Locations</SheetTitle>
-                <form onSubmit={handleSearch}>
+                <form onSubmit={handleFormSubmit}>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input placeholder="Search for a place or address" className="pl-10" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -224,10 +243,18 @@ export default function MapExplorerPage() {
                   </div>
                 </form>
                 <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="rounded-full"><MapIcon className="h-4 w-4 mr-2" /> All</Button>
-                    <Button variant="outline" size="sm" className="rounded-full">Restaurants</Button>
-                    <Button variant="outline" size="sm" className="rounded-full">Hotels</Button>
-                    <Button variant="outline" size="sm" className="rounded-full">Gas</Button>
+                    {filters.map(filter => (
+                      <Button 
+                        key={filter}
+                        variant={activeFilter === filter ? "default" : "outline"} 
+                        size="sm" 
+                        className="rounded-full"
+                        onClick={() => handleFilterClick(filter)}
+                      >
+                        {filter === 'All' && <MapIcon className="h-4 w-4 mr-2" />}
+                        {filter}
+                      </Button>
+                    ))}
                 </div>
               </SheetHeader>
               <ScrollArea className="flex-1">
@@ -300,7 +327,7 @@ export default function MapExplorerPage() {
                   ) : (
                      <div className="space-y-4">
                       { loading ? (
-                        <div>Loading places...</div>
+                        <div className="text-center py-10">Loading places...</div>
                       ) : places.length > 0 ? (
                         <>
                           <div className="flex justify-between items-center">

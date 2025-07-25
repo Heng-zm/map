@@ -12,6 +12,7 @@ import {z} from 'genkit';
 
 const ListPlacesInputSchema = z.object({
   query: z.string().describe('The search query from the user, e.g. "restaurants in new york"'),
+  type: z.string().optional().describe('An optional type of place to filter by, e.g. "Restaurant" or "Hotel".'),
 });
 export type ListPlacesInput = z.infer<typeof ListPlacesInputSchema>;
 
@@ -55,6 +56,10 @@ const prompt = ai.definePrompt({
 The user will provide a search query and you will return a list of places that match.
 For each place, provide all the information in the schema. Generate realistic but not necessarily real data for fields like phone, website, etc.
 For images, use placeholder URLs from https://placehold.co.
+
+{{#if type}}
+Only return places of type: {{{type}}}.
+{{/if}}
 
 Search Query: {{{query}}}`,
 });
