@@ -27,7 +27,6 @@ export function PlaceCard({ place, onClick }: PlaceCardProps) {
            ) : (
             <CarouselItem>
               <div className="w-full h-40 bg-muted flex items-center justify-center">
-                <span className="text-muted-foreground">No Image</span>
               </div>
             </CarouselItem>
            )

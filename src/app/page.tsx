@@ -5,11 +5,11 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar, Clock, X, Navigation } from 'lucide-react';
+import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar, Clock, Navigation } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { listPlaces } from '@/ai/flows/list-places-flow';
 import { getDirections } from '@/ai/flows/get-directions-flow';
-import type { ListPlacesInput, ListPlacesOutput } from '@/ai/schemas';
+import type { ListPlacesInput } from '@/ai/schemas';
 import type { GetDirectionsInput } from '@/ai/schemas';
 import {
   DropdownMenu,
@@ -180,7 +180,7 @@ export default function MapExplorerPage() {
     setLoading(true);
     setPlaces([]);
     setSelectedPlace(null);
-    setSheetOpen(true);
+    if (!sheetOpen) setSheetOpen(true);
 
     if (droppedMarker.current && searchQuery !== `Dropped Pin` && !searchQuery.startsWith('places near')) {
         droppedMarker.current.remove();
@@ -474,14 +474,12 @@ export default function MapExplorerPage() {
              <SheetHeader className="p-4 pt-2 border-b">
                 <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-2" />
                 <SheetTitle className="sr-only">Locations</SheetTitle>
-                <form onSubmit={handleFormSubmit}>
-                  <div className="relative">
+                <form onSubmit={handleFormSubmit} className="flex gap-2">
+                  <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input placeholder="Search for a place or address" className="pl-10 pr-12" value={query} onChange={(e) => setQuery(e.target.value)} />
-                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
-                      <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={handleMyLocation}><LocateFixed className="h-4 w-4" /></Button>
-                    </div>
+                    <Input placeholder="Search for a place or address" className="pl-10" value={query} onChange={(e) => setQuery(e.target.value)} />
                   </div>
+                  <Button type="button" size="icon" variant="outline" className="h-10 w-10" onClick={handleMyLocation}><LocateFixed className="h-5 w-5" /></Button>
                 </form>
                 <div className="flex gap-2 pt-2">
                     {filters.map(filter => (
@@ -522,18 +520,18 @@ export default function MapExplorerPage() {
                       </div>
                       <Separator />
                       <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="flex items-center gap-2"><Clock className="h-4 w-4" /> {selectedPlace.hours}</div>
-                        <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> {selectedPlace.phone}</div>
-                        <div className="flex items-center gap-2 col-span-2"><Globe className="h-4 w-4" /> {selectedPlace.website}</div>
+                        <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" /> {selectedPlace.hours}</div>
+                        <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> {selectedPlace.phone}</div>
+                        <div className="flex items-center gap-2 col-span-2"><Globe className="h-4 w-4 text-muted-foreground" /> {selectedPlace.website}</div>
                       </div>
                       <Separator />
                       <div>
-                        <h3 className="font-semibold">From the business</h3>
+                        <h3 className="font-semibold text-lg">From the business</h3>
                         <p className="text-sm text-muted-foreground mt-2">{selectedPlace.description}</p>
                       </div>
                       <Separator />
                        <div>
-                        <h3 className="font-semibold mb-2">Photos</h3>
+                        <h3 className="font-semibold text-lg mb-2">Photos</h3>
                         <div className="grid grid-cols-3 gap-2">
                           {selectedPlace.images.map((img, i) => (
                             <img key={i} src={img} alt={`${selectedPlace.name} photo ${i}`} className="rounded-lg object-cover aspect-square" data-ai-hint="restaurant interior" />
@@ -544,7 +542,7 @@ export default function MapExplorerPage() {
                        <Separator />
                        <div>
                         <div className="flex justify-between items-center">
-                          <h3 className="font-semibold">Latest Posts</h3>
+                          <h3 className="font-semibold text-lg">Latest Posts</h3>
                         </div>
                         <div className="space-y-4 mt-2">
                           {selectedPlace.posts?.map((post, i) => (
