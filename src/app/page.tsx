@@ -5,12 +5,11 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Map as MapIcon, Compass, LocateFixed, Star, Phone, Globe, Calendar, Clock, Navigation, Share2 } from 'lucide-react';
+import { Search, Map as MapIcon, Menu, Locate, Star, Phone, Globe, Calendar, Navigation, MoreVertical, X } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { listPlaces } from '@/ai/flows/list-places-flow';
 import { getDirections } from '@/ai/flows/get-directions-flow';
-import type { ListPlacesInput } from '@/ai/schemas';
-import type { GetDirectionsInput } from '@/ai/schemas';
+import type { ListPlacesInput, GetDirectionsOutput } from '@/ai/schemas';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { PlaceCard } from '@/components/place-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '@/components/ui/card';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -71,14 +71,12 @@ export default function MapExplorerPage() {
   const placeMarkers = useRef<mapboxgl.Marker[]>([]);
   const [mapStyle, setMapStyle] = useState(initialStyle);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
   const droppedMarker = useRef<mapboxgl.Marker | null>(null);
-  const [directionsLoading, setDirectionsLoading] = useState(false);
+  const [directions, setDirections] = useState<GetDirectionsOutput | null>(null);
   const [isTracking, setIsTracking] = useState(false);
   const locationWatcher = useRef<number | null>(null);
-  const userLocationMarker = useRef<mapboxgl.Marker | null>(null);
-
 
   const createMarkerElement = (place: Place) => {
     const el = document.createElement('div');
@@ -96,6 +94,14 @@ export default function MapExplorerPage() {
         droppedMarker.current.remove();
         droppedMarker.current = null;
     }
+  }
+
+  const clearDirections = () => {
+    if (map.current?.getSource('route')) {
+        map.current.removeLayer('route');
+        map.current.removeSource('route');
+    }
+    setDirections(null);
   }
 
   useEffect(() => {
@@ -144,7 +150,7 @@ export default function MapExplorerPage() {
       newMarker.on('dragend', () => {
         const lngLat = newMarker.getLngLat();
         const locationQuery = `places near ${lngLat.lat}, ${lngLat.lng}`;
-        setQuery(`Dropped Pin`);
+        setQuery(`Dropped Pin at ${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`);
         handleSearch(locationQuery, activeFilter);
       });
 
@@ -152,7 +158,7 @@ export default function MapExplorerPage() {
 
       const lngLat = newMarker.getLngLat();
       const locationQuery = `places near ${lngLat.lat}, ${lngLat.lng}`;
-      setQuery(`Dropped Pin`);
+      setQuery(`Dropped Pin at ${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`);
       handleSearch(locationQuery, activeFilter);
     });
 
@@ -182,7 +188,7 @@ export default function MapExplorerPage() {
         marker.getElement().addEventListener('click', (e) => {
             e.stopPropagation();
             setSelectedPlace(place);
-            setSheetOpen(true);
+            setPanelOpen(true);
             map.current?.flyTo({ center: place.coordinates as [number, number], zoom: 15 });
         });
         placeMarkers.current.push(marker);
@@ -194,7 +200,8 @@ export default function MapExplorerPage() {
     setLoading(true);
     setPlaces([]);
     setSelectedPlace(null);
-    if (!sheetOpen) setSheetOpen(true);
+    clearDirections();
+    setPanelOpen(true);
 
     if (searchQuery !== `Dropped Pin` && !searchQuery.startsWith('places near')) {
       clearDroppedMarker();
@@ -212,7 +219,7 @@ export default function MapExplorerPage() {
       if (result.places.length > 0) {
           const bounds = new mapboxgl.LngLatBounds();
           result.places.forEach(p => bounds.extend(p.coordinates as [number, number]));
-          map.current?.fitBounds(bounds, { padding: 80, pitch: 45 });
+          map.current?.fitBounds(bounds, { padding: {top: 80, bottom: 80, left: 400, right: 80}, pitch: 45 });
       }
       
     } catch (error) {
@@ -227,19 +234,18 @@ export default function MapExplorerPage() {
     }
   };
 
-  const handleDirections = () => {
-    if (!selectedPlace) return;
+  const handleDirections = (destination: [number, number]) => {
+    setPanelOpen(false);
+    clearDirections();
 
-    setDirectionsLoading(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
           const origin: [number, number] = [longitude, latitude];
-          const destination = selectedPlace.coordinates;
 
           try {
-            const directions = await getDirections({ origin, destination });
+            const result = await getDirections({ origin, destination });
             
             if (map.current?.getSource('route')) {
                 map.current.removeLayer('route');
@@ -253,7 +259,7 @@ export default function MapExplorerPage() {
                 'properties': {},
                 'geometry': {
                   'type': 'LineString',
-                  'coordinates': directions.route,
+                  'coordinates': result.route,
                 }
               }
             });
@@ -273,10 +279,9 @@ export default function MapExplorerPage() {
             });
             
             const bounds = new mapboxgl.LngLatBounds();
-            directions.route.forEach(point => bounds.extend(point as [number, number]));
+            result.route.forEach(point => bounds.extend(point as [number, number]));
             map.current?.fitBounds(bounds, { padding: 80 });
-
-            setSheetOpen(false);
+            setDirections(result);
 
           } catch (error) {
              toast({
@@ -284,8 +289,6 @@ export default function MapExplorerPage() {
               title: "Directions failed",
               description: "Could not get directions. Please try again.",
             });
-          } finally {
-            setDirectionsLoading(false);
           }
         },
         () => {
@@ -294,7 +297,6 @@ export default function MapExplorerPage() {
             title: "Geolocation failed",
             description: "Could not get your location.",
           });
-          setDirectionsLoading(false);
         }
       );
     } else {
@@ -303,11 +305,10 @@ export default function MapExplorerPage() {
         title: "Geolocation not supported",
         description: "Your browser does not support geolocation.",
       });
-      setDirectionsLoading(false);
     }
   };
   
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormEvent>) => {
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (query) {
       handleSearch(query, activeFilter);
@@ -316,7 +317,7 @@ export default function MapExplorerPage() {
   
   const handleFilterClick = (filter: string) => {
     setActiveFilter(filter);
-    if(query && query !== "Nearby places" && query !== "Dropped Pin") {
+    if(query && query !== "Nearby places" && !query.startsWith("Dropped Pin")) {
       handleSearch(query, filter);
     }
   }
@@ -376,15 +377,23 @@ export default function MapExplorerPage() {
         
         if (map.current.getSource('puck')) {
             (map.current.getSource('puck') as mapboxgl.GeoJSONSource).setData({
-                type: 'Point',
-                coordinates: lngLat
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                    type: 'Point',
+                    coordinates: lngLat
+                }
             });
         } else {
             map.current.addSource('puck', {
                 type: 'geojson',
                 data: {
-                    type: 'Point',
-                    coordinates: lngLat
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'Point',
+                        coordinates: lngLat
+                    }
                 }
             });
             map.current.addLayer({
@@ -418,11 +427,11 @@ export default function MapExplorerPage() {
     );
   };
 
-  const handleSheetClose = (open: boolean) => {
+  const handlePanelClose = (open: boolean) => {
     if (!open) {
       setSelectedPlace(null);
     }
-    setSheetOpen(open);
+    setPanelOpen(open);
   }
 
   const handleBackToList = () => {
@@ -430,7 +439,7 @@ export default function MapExplorerPage() {
     if (places.length > 1 && map.current) {
         const bounds = new mapboxgl.LngLatBounds();
         places.forEach(p => bounds.extend(p.coordinates as [number, number]));
-        map.current.fitBounds(bounds, { padding: 80, pitch: 45 });
+        map.current.fitBounds(bounds, { padding: {top: 80, bottom: 80, left: 400, right: 80}, pitch: 45 });
     }
   }
 
@@ -485,55 +494,13 @@ export default function MapExplorerPage() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-      
-       <div className="absolute top-4 right-4 z-10 flex gap-2">
-        <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm" onClick={handleRealTimeLocation} >
-            <Navigation className={`h-5 w-5 ${isTracking ? 'text-blue-500' : ''}`} />
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm">
-                <MapIcon className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuLabel>Map Styles</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {mapStyles.map((style) => (
-              <DropdownMenuItem key={style.value} onSelect={() => setMapStyle(style.value)}>
-                {style.name}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
 
-      {!sheetOpen && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
-          <Button
-            size="lg"
-            className="rounded-full shadow-lg"
-            onClick={() => setSheetOpen(true)}
-          >
-            <Compass className="mr-2 h-5 w-5" />
-            Explore
-          </Button>
-        </div>
-      )}
-
-      <Sheet open={sheetOpen} onOpenChange={handleSheetClose}>
-          <SheetContent side="bottom" className="h-[90vh] rounded-t-xl flex flex-col p-0" overlayClassName="bg-black/20">
-             <SheetHeader className="p-4 pt-2 border-b">
-                <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-2" />
+      <div className="absolute top-4 left-4 z-10 flex gap-2 items-center">
+        <Sheet open={panelOpen} onOpenChange={handlePanelClose}>
+          <SheetContent side="left" className="w-[380px] flex flex-col p-0" overlayClassName="bg-transparent">
+             <SheetHeader className="p-4 border-b">
                 <SheetTitle className="sr-only">Locations</SheetTitle>
-                <form onSubmit={handleFormSubmit} className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input placeholder="Search for a place or address" className="pl-10" value={query} onChange={(e) => setQuery(e.target.value)} />
-                  </div>
-                  <Button type="button" size="icon" variant="outline" className="h-10 w-10" onClick={handleMyLocation}><LocateFixed className="h-5 w-5" /></Button>
-                </form>
-                <div className="flex gap-2 pt-2">
+                 <div className="flex gap-2 pt-2">
                     {filters.map(filter => (
                       <Button 
                         key={filter}
@@ -542,7 +509,6 @@ export default function MapExplorerPage() {
                         className="rounded-full"
                         onClick={() => handleFilterClick(filter)}
                       >
-                        {filter === 'All' && <MapIcon className="h-4 w-4 mr-2" />}
                         {filter}
                       </Button>
                     ))}
@@ -572,7 +538,7 @@ export default function MapExplorerPage() {
                       </div>
                       <Separator />
                       <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" /> {selectedPlace.hours}</div>
+                        <div className="flex items-center gap-2"><Globe className="h-4 w-4 text-muted-foreground" /> {selectedPlace.hours}</div>
                         <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> {selectedPlace.phone}</div>
                         <div className="flex items-center gap-2 col-span-2"><Globe className="h-4 w-4 text-muted-foreground" /> {selectedPlace.website}</div>
                       </div>
@@ -613,6 +579,14 @@ export default function MapExplorerPage() {
                           ))}
                         </div>
                       </div>
+                      <div className="p-4 border-t grid grid-cols-2 gap-2">
+                        <Button variant="outline" className="w-full" onClick={handleBackToList}>
+                          Back to list
+                        </Button>
+                        <Button className="w-full" onClick={() => handleDirections(selectedPlace.coordinates)}>
+                          <Navigation className="mr-2 h-4 w-4" />Directions
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                      <div className="space-y-4">
@@ -638,39 +612,88 @@ export default function MapExplorerPage() {
                         </>
                       ) : (
                         <div className="text-center py-20 text-muted-foreground">
-                            <Compass className="h-12 w-12 mx-auto" />
+                            <Search className="h-12 w-12 mx-auto" />
                             <p className="mt-4 font-medium">Search for something to get started.</p>
-                            <p className="text-sm">Try searching for "parks in san francisco" or click the map.</p>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
               </ScrollArea>
-              {selectedPlace ? (
-                <div className="p-4 border-t grid grid-cols-3 gap-2">
+              {selectedPlace && (
+                <div className="p-4 border-t grid grid-cols-2 gap-2">
                   <Button variant="outline" className="w-full" onClick={handleBackToList}>
                     Back to list
                   </Button>
-                  <Button variant="outline" className="w-full" onClick={handleShare}>
-                    <Share2 className="mr-2 h-4 w-4" />
-                    Share
+                  <Button className="w-full" onClick={() => handleDirections(selectedPlace.coordinates)}>
+                    <Navigation className="mr-2 h-4 w-4" />Directions
                   </Button>
-                  <Button className="w-full" onClick={handleDirections} disabled={directionsLoading}>
-                    {directionsLoading ? 'Loading...' : <><Navigation className="mr-2 h-4 w-4" />Directions</>}
-                  </Button>
-                </div>
-              ) : (
-                <div className="p-4 border-t">
-                  <SheetClose asChild>
-                    <Button variant="outline" className="w-full">
-                      Close
-                    </Button>
-                  </SheetClose>
                 </div>
               )}
           </SheetContent>
-      </Sheet>
+        </Sheet>
+        
+        <form onSubmit={handleFormSubmit} className="flex gap-2 items-center bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-lg">
+          <Button type="button" size="icon" variant="ghost" className="h-10 w-10" onClick={() => setPanelOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="relative flex-1">
+            <Input placeholder="Search for a place or address" className="bg-transparent border-none focus-visible:ring-0" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+          <Button type="submit" size="icon" variant="ghost" className="h-10 w-10">
+            <Search className="h-5 w-5" />
+          </Button>
+        </form>
+      </div>
+      
+       <div className="absolute top-4 right-4 z-10 flex gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm rounded-full h-12 w-12 shadow-lg">
+                <MapIcon className="h-6 w-6" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>Map Styles</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {mapStyles.map((style) => (
+              <DropdownMenuItem key={style.value} onSelect={() => setMapStyle(style.value)}>
+                {style.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+       <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
+        <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm rounded-full h-12 w-12 shadow-lg" onClick={handleMyLocation} >
+            <Locate className="h-6 w-6" />
+        </Button>
+         <Button variant="outline" size="icon" className={`bg-white/80 backdrop-blur-sm rounded-full h-12 w-12 shadow-lg ${isTracking ? 'text-blue-500' : ''}`} onClick={handleRealTimeLocation} >
+            <Navigation className="h-6 w-6" />
+        </Button>
+      </div>
+      
+      {directions && (
+        <Card className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 w-80 shadow-lg">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="text-primary">
+                <Navigation className="h-8 w-8" />
+              </div>
+              <div>
+                <p className="font-bold text-lg">19 min <span className="text-muted-foreground font-normal">(3.1 mi)</span></p>
+                <p className="text-sm text-muted-foreground">via Your location</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+               <Button variant="ghost" size="icon"><MoreVertical className="h-5 w-5" /></Button>
+               <Button variant="ghost" size="icon" onClick={clearDirections}><X className="h-5 w-5" /></Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
     </div>
   );
 }
