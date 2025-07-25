@@ -12,7 +12,7 @@ const containerStyle = {
   height: '100vh'
 };
 
-const initialCenter: [number, number] = [-73.9876, 40.7484];
+const initialCenter: [number, number] = [104.9282, 11.5564];
 const initialZoom = 13;
 const initialStyle = 'mapbox://styles/mapbox/standard';
 
