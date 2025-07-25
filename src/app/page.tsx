@@ -5,10 +5,10 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Mic, Layers, Send, Compass } from 'lucide-react';
+import { Search, Mic, Layers, Send, Compass, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
-import { search } from '@/ai/flows/search-flow';
+import { search, SearchOutput } from '@/ai/flows/search-flow';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +17,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -37,6 +40,7 @@ export default function MapExplorerPage() {
   const [loading, setLoading] = useState(false);
   const searchMarker = useRef<mapboxgl.Marker | null>(null);
   const [mapStyle, setMapStyle] = useState(initialStyle);
+  const [searchResult, setSearchResult] = useState<SearchOutput & { title: string } | null>(null);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -93,9 +97,11 @@ export default function MapExplorerPage() {
     e.preventDefault();
     if (!query || !map.current) return;
     setLoading(true);
+    setSearchResult(null);
 
     try {
       const result = await search({ query });
+      setSearchResult({ ...result, title: query });
 
       if (searchMarker.current) {
         searchMarker.current.remove();
@@ -108,13 +114,8 @@ export default function MapExplorerPage() {
         essential: true,
       });
 
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-        `<h3>${query}</h3><p>${result.description}</p>`
-      );
-
       searchMarker.current = new mapboxgl.Marker()
         .setLngLat([result.long, result.lat])
-        .setPopup(popup)
         .addTo(map.current);
 
     } catch (error) {
@@ -128,6 +129,14 @@ export default function MapExplorerPage() {
       setLoading(false);
     }
   };
+  
+  const handleSheetClose = () => {
+    setSearchResult(null);
+    if (searchMarker.current) {
+      searchMarker.current.remove();
+      searchMarker.current = null;
+    }
+  }
 
   const mapStyles = [
     { name: 'Standard', value: 'mapbox://styles/mapbox/standard' },
@@ -182,7 +191,7 @@ export default function MapExplorerPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-           <Button type="submit" variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+           <Button type="submit" variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={loading}>
             <Send className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -194,6 +203,20 @@ export default function MapExplorerPage() {
           </Avatar>
         </form>
       </div>
+
+      <Sheet open={!!searchResult} onOpenChange={(open) => !open && handleSheetClose()} modal={false}>
+          <SheetContent side="bottom" className="h-[40vh] rounded-t-xl" overlayClassName="bg-transparent">
+              <SheetHeader>
+                  <SheetTitle className="sr-only">Search Result</SheetTitle>
+              </SheetHeader>
+              {searchResult && (
+                  <div className="p-4">
+                      <h2 className="text-2xl font-bold">{searchResult.title}</h2>
+                      <p className="text-muted-foreground mt-2">{searchResult.description}</p>
+                  </div>
+              )}
+          </SheetContent>
+      </Sheet>
     </div>
   );
 }
