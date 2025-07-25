@@ -70,7 +70,9 @@ export default function MapExplorerPage() {
     map.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-left');
     
     map.current.on('style.load', () => {
-      map.current?.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+      if (map.current?.getSource('mapbox-dem')) {
+        map.current?.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+      }
     });
 
     map.current.on('load', () => {
