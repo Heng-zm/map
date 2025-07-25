@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow for finding a list of places from a search query.
@@ -11,7 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const ListPlacesInputSchema = z.object({
-  query: z.string().describe('The search query from the user, e.g. "restaurants in new york"'),
+  query: z.string().describe('The search query from the user, e.g. "restaurants in new york" or "places near 40.7128, -74.0060"'),
   type: z.string().optional().describe('An optional type of place to filter by, e.g. "Restaurant" or "Hotel".'),
 });
 export type ListPlacesInput = z.infer<typeof ListPlacesInputSchema>;
@@ -55,6 +56,7 @@ const prompt = ai.definePrompt({
   prompt: `You are a helpful assistant that can find places on a map and provide a brief description of them.
 The user will provide a search query and you will return a list of places that match.
 For each place, provide all the information in the schema. Generate realistic but not necessarily real data for fields like phone, website, etc.
+If the search query contains coordinates, prioritize results near that location.
 For images, use placeholder URLs from https://placehold.co.
 Generate 3-5 realistic posts for each business, with dates from the last month.
 
@@ -76,3 +78,5 @@ const listPlacesFlow = ai.defineFlow(
     return output!;
   }
 );
+
+    

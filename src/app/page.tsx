@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, X, Map as MapIcon, Send, Clock, Star, Tag, ChevronDown, Phone, Globe, Calendar, MoreHorizontal, PersonStanding, Car } from 'lucide-react';
+import { Search, X, Map as MapIcon, Send, Clock, Star, Tag, ChevronDown, Phone, Globe, Calendar, MoreHorizontal, PersonStanding, Car, LocateFixed } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
 import { search, SearchOutput } from '@/ai/flows/search-flow';
@@ -122,7 +122,7 @@ export default function MapExplorerPage() {
     places.forEach(place => {
         const el = document.createElement('div');
         el.className = 'marker';
-        el.style.backgroundImage = `url('https://placehold.co/40x40/f97316/ffffff.png?text=R')`;
+        el.style.backgroundImage = `url('https://placehold.co/40x40/f97316/ffffff.png?text=${place.type.charAt(0)}')`;
         el.style.width = `40px`;
         el.style.height = `40px`;
         el.style.backgroundSize = '100%';
@@ -188,6 +188,33 @@ export default function MapExplorerPage() {
     }
   }
 
+  const handleMyLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          map.current?.flyTo({ center: [longitude, latitude], zoom: 15 });
+          const locationQuery = `places near ${latitude}, ${longitude}`;
+          setQuery("Nearby places");
+          handleSearch(locationQuery, activeFilter);
+        },
+        () => {
+          toast({
+            variant: "destructive",
+            title: "Geolocation failed",
+            description: "Could not get your location.",
+          });
+        }
+      );
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Geolocation not supported",
+        description: "Your browser does not support geolocation.",
+      });
+    }
+  };
+
   const handleSheetClose = (open: boolean) => {
     if (!open) {
       setSelectedPlace(null);
@@ -238,8 +265,11 @@ export default function MapExplorerPage() {
                 <form onSubmit={handleFormSubmit}>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input placeholder="Search for a place or address" className="pl-10" value={query} onChange={(e) => setQuery(e.target.value)} />
-                    {query && <Button size="icon" variant="ghost" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setQuery('')}><X className="h-4 w-4" /></Button>}
+                    <Input placeholder="Search for a place or address" className="pl-10 pr-20" value={query} onChange={(e) => setQuery(e.target.value)} />
+                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+                      {query && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setQuery('')}><X className="h-4 w-4" /></Button>}
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleMyLocation}><LocateFixed className="h-4 w-4" /></Button>
+                    </div>
                   </div>
                 </form>
                 <div className="flex gap-2 pt-2">
@@ -359,3 +389,5 @@ export default function MapExplorerPage() {
     </div>
   );
 }
+
+    
