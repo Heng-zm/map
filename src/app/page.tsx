@@ -315,7 +315,6 @@ export default function MapExplorerPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input placeholder="Search for a place or address" className="pl-10 pr-20" value={query} onChange={(e) => setQuery(e.target.value)} />
                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
-                      {query && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setQuery('')}><X className="h-4 w-4" /></Button>}
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleMyLocation}><LocateFixed className="h-4 w-4" /></Button>
                     </div>
                   </div>
