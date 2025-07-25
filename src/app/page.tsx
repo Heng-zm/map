@@ -421,7 +421,6 @@ export default function MapExplorerPage() {
                         <>
                           <div className="flex justify-between items-center">
                             <h2 className="text-xl font-semibold">Results for "{query}"</h2>
-                            <Button variant="ghost" size="sm">See all</Button>
                           </div>
                           {places.map((place) => (
                             <PlaceCard key={place.id} place={place} onClick={() => { setSelectedPlace(place); map.current?.flyTo({ center: place.coordinates as [number, number], zoom: 15 }); }} />
