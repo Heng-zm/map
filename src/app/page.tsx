@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { PlaceCard } from '@/components/place-card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -168,8 +169,9 @@ export default function MapExplorerPage() {
   }, [places]);
 
   const handleSearch = async (searchQuery: string, filter?: string) => {
-    if (!searchQuery || !map.current) return;
+    if (!searchQuery) return;
     setLoading(true);
+    setPlaces([]);
     setSelectedPlace(null);
     setSheetOpen(true);
 
@@ -188,18 +190,9 @@ export default function MapExplorerPage() {
       setPlaces(result.places as Place[]);
 
       if (result.places.length > 0) {
-        if (result.places.length === 1) {
-            map.current.flyTo({
-                center: result.places[0].coordinates as [number, number],
-                zoom: 12,
-                pitch: 45,
-                essential: true,
-            });
-        } else {
-            const bounds = new mapboxgl.LngLatBounds();
-            result.places.forEach(p => bounds.extend(p.coordinates as [number, number]));
-            map.current.fitBounds(bounds, { padding: 80, pitch: 45 });
-        }
+          const bounds = new mapboxgl.LngLatBounds();
+          result.places.forEach(p => bounds.extend(p.coordinates as [number, number]));
+          map.current?.fitBounds(bounds, { padding: 80, pitch: 45 });
       }
       
     } catch (error) {
@@ -214,7 +207,7 @@ export default function MapExplorerPage() {
     }
   };
   
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormEvent>) => {
     e.preventDefault();
     handleSearch(query, activeFilter);
   };
@@ -393,7 +386,6 @@ export default function MapExplorerPage() {
                        <div>
                         <div className="flex justify-between items-center">
                           <h3 className="font-semibold">Latest Posts</h3>
-                          <Button variant="ghost" size="sm">See all</Button>
                         </div>
                         <div className="space-y-4 mt-2">
                           {selectedPlace.posts?.map((post, i) => (
@@ -416,7 +408,16 @@ export default function MapExplorerPage() {
                   ) : (
                      <div className="space-y-4">
                       { loading ? (
-                        <div className="text-center py-10">Loading places...</div>
+                        Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="border rounded-lg overflow-hidden">
+                                <Skeleton className="w-full h-40" />
+                                <div className="p-4 space-y-2">
+                                    <Skeleton className="h-6 w-3/4" />
+                                    <Skeleton className="h-4 w-1/2" />
+                                    <Skeleton className="h-4 w-1/3" />
+                                </div>
+                            </div>
+                        ))
                       ) : places.length > 0 ? (
                         <>
                           <div className="flex justify-between items-center">
@@ -427,8 +428,10 @@ export default function MapExplorerPage() {
                           ))}
                         </>
                       ) : (
-                        <div className="text-center py-10">
-                            <p>Search for something to get started.</p>
+                        <div className="text-center py-20 text-muted-foreground">
+                            <Compass className="h-12 w-12 mx-auto" />
+                            <p className="mt-4 font-medium">Search for something to get started.</p>
+                            <p className="text-sm">Try searching for "parks in san francisco" or click the map.</p>
                         </div>
                       )}
                     </div>
