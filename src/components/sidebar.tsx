@@ -8,18 +8,22 @@ interface SidebarProps {
     onToggleTraffic: () => void;
     onToggleMeasurement: () => void;
     onToggleDirections: () => void;
+    onToggleLayers: () => void;
     showTraffic: boolean;
     isMeasuring: boolean;
     showDirections: boolean;
+    showLayers: boolean;
 }
 
 export function Sidebar({ 
     onToggleTraffic, 
     onToggleMeasurement, 
     onToggleDirections,
+    onToggleLayers,
     showTraffic,
     isMeasuring,
-    showDirections
+    showDirections,
+    showLayers
 }: SidebarProps) {
   return (
     <div className="absolute top-1/2 -translate-y-1/2 left-4 z-20">
@@ -48,7 +52,12 @@ export function Sidebar({
         >
             <Navigation />
         </Button>
-        <Button variant="ghost" size="icon" className="rounded-full">
+        <Button 
+            variant={showLayers ? 'secondary' : 'ghost'}
+            size="icon" 
+            className="rounded-full"
+            onClick={onToggleLayers}
+        >
             <Layers />
         </Button>
       </div>
