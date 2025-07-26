@@ -4,19 +4,18 @@
 
 import { z } from 'genkit';
 
-export const WeatherInputSchema = z.object({
+export const LocationAnalysisInputSchema = z.object({
   latitude: z.number().describe('The latitude of the location.'),
   longitude: z.number().describe('The longitude of the location.'),
 });
-export type WeatherInput = z.infer<typeof WeatherInputSchema>;
+export type LocationAnalysisInput = z.infer<typeof LocationAnalysisInputSchema>;
 
-export const WeatherOutputSchema = z.object({
-  temperature: z.number().describe('The current temperature in Celsius.'),
-  condition: z.string().describe('A brief description of the weather condition.'),
-  windSpeed: z.number().describe('The current wind speed in meters per second.'),
-  location: z.string().describe('The name of the location.'),
+export const LocationAnalysisOutputSchema = z.object({
+  analysis: z.string().describe('The AI-generated analysis of the location.'),
+  locationName: z.string().describe('The name of the location (e.g., city, region).'),
 });
-export type WeatherOutput = z.infer<typeof WeatherOutputSchema>;
+export type LocationAnalysisOutput = z.infer<typeof LocationAnalysisOutputSchema>;
+
 
 export const TranslateInputSchema = z.object({
   text: z.string().describe('The text to translate.'),

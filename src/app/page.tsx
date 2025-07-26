@@ -4,10 +4,8 @@ import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
-import { getWeather } from '@/ai/flows/weather-flow';
-import { translateText } from '@/ai/flows/translate-flow';
-import { Thermometer, Wind, Cloud } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { analyzeLocation } from '@/ai/flows/location-analysis-flow';
+import { LocationAnalysisOutput } from '@/ai/schemas';
 import {
   Sheet,
   SheetContent,
@@ -23,38 +21,21 @@ const containerStyle = {
 const initialCenter: [number, number] = [104.9282, 11.5564];
 const initialZoom = 13;
 
-interface WeatherData {
-  temperature: number;
-  condition: string;
-  windSpeed: number;
-  location: string;
-}
 
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const marker = useRef<mapboxgl.Marker | null>(null);
   const { toast } = useToast();
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [translatedCondition, setTranslatedCondition] = useState<string | null>(null);
-  const [loadingWeather, setLoadingWeather] = useState(false);
+  const [analysis, setAnalysis] = useState<LocationAnalysisOutput | null>(null);
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
 
-  const fetchWeatherForLocation = async (lat: number, lng: number) => {
-    if (!process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY) {
-      toast({
-        variant: "destructive",
-        title: "OpenWeather API Key Missing",
-        description: "Please add your OpenWeatherMap API key to the .env file.",
-      });
-      return;
-    }
-
-    setLoadingWeather(true);
+  const fetchLocationAnalysis = async (lat: number, lng: number) => {
+    setLoadingAnalysis(true);
     setIsSheetOpen(true);
-    setWeather(null);
-    setTranslatedCondition(null);
+    setAnalysis(null);
     
     if (marker.current) {
       marker.current.setLngLat([lng, lat]);
@@ -70,22 +51,19 @@ export default function MapExplorerPage() {
     }
 
     try {
-      const weatherData = await getWeather({ latitude: lat, longitude: lng });
-      setWeather(weatherData);
-
-      const translation = await translateText({ text: weatherData.condition, language: 'Khmer' });
-      setTranslatedCondition(translation.translatedText);
+      const analysisData = await analyzeLocation({ latitude: lat, longitude: lng });
+      setAnalysis(analysisData);
       
     } catch (error) {
-      console.error("Failed to fetch weather data", error);
+      console.error("Failed to fetch location analysis", error);
       toast({
         variant: "destructive",
-        title: "Could not fetch weather",
-        description: "An error occurred while fetching weather data.",
+        title: "Could not analyze location",
+        description: "An error occurred while analyzing the location.",
       });
       setIsSheetOpen(false);
     } finally {
-      setLoadingWeather(false);
+      setLoadingAnalysis(false);
     }
   }
 
@@ -126,26 +104,24 @@ export default function MapExplorerPage() {
           (position) => {
             const { latitude, longitude } = position.coords;
             map.current?.setCenter([longitude, latitude]);
-            fetchWeatherForLocation(latitude, longitude);
+            fetchLocationAnalysis(latitude, longitude);
           },
           () => {
             toast({
               title: "Location Access Denied",
-              description: "Showing default location. Click on the map to see weather elsewhere.",
+              description: "Showing default location. Click on the map to see analysis.",
             });
-            // Fetch for default location if user denies
-            fetchWeatherForLocation(initialCenter[1], initialCenter[0]);
+            fetchLocationAnalysis(initialCenter[1], initialCenter[0]);
           }
         );
       } else {
-        // Fetch for default location if geolocation is not available
-        fetchWeatherForLocation(initialCenter[1], initialCenter[0]);
+        fetchLocationAnalysis(initialCenter[1], initialCenter[0]);
       }
     });
 
     map.current.on('click', async (e) => {
       const { lat, lng } = e.lngLat;
-      fetchWeatherForLocation(lat, lng);
+      fetchLocationAnalysis(lat, lng);
     });
 
     return () => {
@@ -157,7 +133,7 @@ export default function MapExplorerPage() {
   const handleSheetOpenChange = (open: boolean) => {
     setIsSheetOpen(open);
     if (!open) {
-        setWeather(null);
+        setAnalysis(null);
     }
   }
   
@@ -167,27 +143,16 @@ export default function MapExplorerPage() {
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
       <Sheet open={isSheetOpen} onOpenChange={handleSheetOpenChange}>
         <SheetContent side="top" className="bg-black/70 text-white backdrop-blur-md border-none" overlayClassName="bg-transparent">
-            <h1 className="text-xl font-bold text-center">អាកាសធាតុ</h1>
-            {loadingWeather && <p className="mt-4 text-center">កំពុងផ្ទុកទិន្នន័យអាកាសធាតុ...</p>}
-            {weather && (
-            <div className="mt-4 flex flex-col items-center">
-                <p className="text-lg font-semibold">{weather.location}</p>
-                <div className="flex items-center gap-2 mt-2">
-                <Thermometer className="h-5 w-5" />
-                <span>{weather.temperature.toFixed(1)}°C</span>
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                    <Cloud className="h-5 w-5" />
-                    <span>{translatedCondition || weather.condition}</span>
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                    <Wind className="h-5 w-5" />
-                    <span>{weather.windSpeed.toFixed(1)} m/s</span>
-                </div>
+            <h1 className="text-xl font-bold text-center">ការវិភាគទីតាំង</h1>
+            {loadingAnalysis && <p className="mt-4 text-center">កំពុងវិភាគទីតាំង...</p>}
+            {analysis && (
+            <div className="mt-4 flex flex-col items-center text-center">
+                <p className="text-lg font-semibold">{analysis.locationName}</p>
+                <p className="mt-2 text-sm">{analysis.analysis}</p>
             </div>
             )}
-            {!loadingWeather && !weather && (
-              <p className="mt-4 text-center">ចុចលើផែនទីដើម្បីមើលអាកាសធាតុ</p>
+            {!loadingAnalysis && !analysis && (
+              <p className="mt-4 text-center">ចុចលើផែនទីដើម្បីវិភាគទីតាំង</p>
             )}
         </SheetContent>
       </Sheet>
