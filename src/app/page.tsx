@@ -96,7 +96,7 @@ export default function MapExplorerPage() {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/satellite-v9',
+      style: 'mapbox://styles/mapbox/outdoors-v12',
       center: initialCenter,
       zoom: initialZoom,
     });
