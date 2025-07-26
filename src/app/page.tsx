@@ -545,7 +545,7 @@ export default function MapExplorerPage() {
               <p>Total Distance: {totalDistance.toFixed(2)} km</p>
               {totalArea > 0 && <p>Total Area: {totalArea.toFixed(2)} km²</p>}
               {measurementPoints.length > 1 && totalArea === 0 && (
-                <p className="text-xs text-muted-foreground font-normal">Click first point to close shape & calculate area.</p>
+                <p className="text-xs text-muted-foreground font-normal">Click first point to close shape &amp; calculate area.</p>
               )}
             </div>
             <Button size="sm" variant="destructive" onClick={clearMeasurement}>Clear</Button>
@@ -565,3 +565,5 @@ export default function MapExplorerPage() {
     </div>
   );
 }
+
+    
