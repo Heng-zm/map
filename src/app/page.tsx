@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
@@ -109,7 +109,7 @@ export default function MapExplorerPage() {
     }
   }, [showTraffic, map]);
 
-  const handleMapClick = (e: mapboxgl.MapLayerMouseEvent) => {
+  const handleMapClick = useCallback((e: mapboxgl.MapLayerMouseEvent) => {
     if (!isMeasuring || !map.current) return;
     const newPoints = [...measurementPoints, e.lngLat];
     setMeasurementPoints(newPoints);
@@ -136,7 +136,7 @@ export default function MapExplorerPage() {
     if (source) {
         source.setData(featureCollection(features));
     }
-  };
+  }, [isMeasuring, measurementPoints]);
 
   useEffect(() => {
     if (!map.current) return;
@@ -147,7 +147,6 @@ export default function MapExplorerPage() {
     } else {
         map.current.getCanvas().style.cursor = '';
         map.current.off('click', handleMapClick);
-        clearMeasurement();
     }
     
     return () => {
@@ -156,25 +155,31 @@ export default function MapExplorerPage() {
             map.current.off('click', handleMapClick);
         }
     }
-  }, [isMeasuring, measurementPoints]);
+  }, [isMeasuring, handleMapClick]);
+  
+  const clearMeasurement = useCallback(() => {
+    setMeasurementPoints([]);
+    setDistance(0);
+    if (map.current) {
+        const source = map.current.getSource('measurement') as mapboxgl.GeoJSONSource;
+        if (source) {
+            source.setData(emptyGeoJSON);
+        }
+    }
+  }, []);
 
   const toggleTraffic = () => {
     setShowTraffic(prev => !prev);
   }
 
   const toggleMeasurement = () => {
-    setIsMeasuring(prev => !prev);
+    setIsMeasuring(prev => {
+        if (prev) {
+            clearMeasurement();
+        }
+        return !prev;
+    });
   };
-  
-  const clearMeasurement = () => {
-    setMeasurementPoints([]);
-    setDistance(0);
-    const source = map.current?.getSource('measurement') as mapboxgl.GeoJSONSource;
-    if (source) {
-      source.setData(emptyGeoJSON);
-    }
-  };
-
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans">
