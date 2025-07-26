@@ -4,6 +4,10 @@ import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
+import { getWeather } from '@/ai/flows/weather-flow';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { X, Thermometer, Wind, Cloud } from 'lucide-react';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -15,10 +19,19 @@ const containerStyle = {
 const initialCenter: [number, number] = [104.9282, 11.5564];
 const initialZoom = 13;
 
+interface WeatherData {
+  temperature: number;
+  condition: string;
+  windSpeed: number;
+  location: string;
+}
+
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const { toast } = useToast();
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [loadingWeather, setLoadingWeather] = useState(false);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -52,6 +65,33 @@ export default function MapExplorerPage() {
       map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
     });
 
+    map.current.on('click', async (e) => {
+      if (!process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY) {
+        toast({
+          variant: "destructive",
+          title: "OpenWeather API Key Missing",
+          description: "Please add your OpenWeatherMap API key to the .env file.",
+        });
+        return;
+      }
+
+      setLoadingWeather(true);
+      setWeather(null);
+      try {
+        const { lat, lng } = e.lngLat;
+        const weatherData = await getWeather({ latitude: lat, longitude: lng });
+        setWeather(weatherData);
+      } catch (error) {
+        console.error("Failed to fetch weather data", error);
+        toast({
+          variant: "destructive",
+          title: "Could not fetch weather",
+          description: "An error occurred while fetching weather data.",
+        });
+      } finally {
+        setLoadingWeather(false);
+      }
+    });
 
     return () => {
         map.current?.remove();
@@ -63,6 +103,36 @@ export default function MapExplorerPage() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
+      {(weather || loadingWeather) && (
+         <Card className="absolute top-4 left-4 w-80 bg-background/80 backdrop-blur-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg">Weather</CardTitle>
+            <Button variant="ghost" size="icon" onClick={() => setWeather(null)} className="h-6 w-6">
+              <X className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+           <CardContent>
+             {loadingWeather && <p>Loading weather...</p>}
+             {weather && (
+              <div>
+                <p className="text-2xl font-bold">{weather.location}</p>
+                 <div className="flex items-center gap-2 mt-2">
+                   <Thermometer className="h-5 w-5" />
+                   <span>{weather.temperature.toFixed(1)}°C</span>
+                 </div>
+                 <div className="flex items-center gap-2 mt-1">
+                    <Cloud className="h-5 w-5" />
+                    <span>{weather.condition}</span>
+                 </div>
+                 <div className="flex items-center gap-2 mt-1">
+                    <Wind className="h-5 w-5" />
+                    <span>{weather.windSpeed.toFixed(1)} m/s</span>
+                 </div>
+              </div>
+             )}
+           </CardContent>
+         </Card>
+      )}
     </div>
   );
 }
