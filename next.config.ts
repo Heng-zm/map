@@ -18,12 +18,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  devIndicators: {
-    buildActivity: false,
-  },
-  experimental: {
-    allowedDevOrigins: ['*'],
-  },
+  allowedDevOrigins: ['*'],
 };
 
 export default nextConfig;

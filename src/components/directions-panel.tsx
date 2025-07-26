@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { X, Car, Bike, Walk } from 'lucide-react';
+import { X, Car, Bike, Footprints } from 'lucide-react';
 import type { Map, LngLatLike } from 'mapbox-gl';
 
 interface DirectionsPanelProps {
@@ -140,7 +140,7 @@ export function DirectionsPanel({ map, isOpen, onClose }: DirectionsPanelProps) 
 
         <div className="flex justify-around my-4">
             <Button variant={mode === 'driving-traffic' ? 'secondary' : 'ghost'} size="icon" onClick={() => setMode('driving-traffic')}><Car /></Button>
-            <Button variant={mode === 'walking' ? 'secondary' : 'ghost'} size="icon" onClick={() => setMode('walking')}><Walk /></Button>
+            <Button variant={mode === 'walking' ? 'secondary' : 'ghost'} size="icon" onClick={() => setMode('walking')}><Footprints /></Button>
             <Button variant={mode === 'cycling' ? 'secondary' : 'ghost'} size="icon" onClick={() => setMode('cycling')}><Bike /></Button>
         </div>
 
@@ -169,4 +169,3 @@ export function DirectionsPanel({ map, isOpen, onClose }: DirectionsPanelProps) 
     </Card>
   );
 }
-
