@@ -55,6 +55,9 @@ export default function MapExplorerPage() {
   const [places, setPlaces] = useState<ListPlacesOutput['places']>([]);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [savedPlaces, setSavedPlaces] = useState<Place[]>([]);
+  const [isMarkingWarZone, setIsMarkingWarZone] = useState(false);
+  const [warZonePoints, setWarZonePoints] = useState<mapboxgl.LngLat[]>([]);
+  const [warZones, setWarZones] = useState<Feature<any>[]>([]);
   
   const setStyle = useCallback((style: MapStyle) => {
     if (!map.current) return;
@@ -146,6 +149,16 @@ export default function MapExplorerPage() {
             }
         });
       }
+      if (!map.current.getSource('war-zones')) {
+          map.current.addSource('war-zones', { type: 'geojson', data: featureCollection(warZones) });
+          map.current.addLayer({ id: 'war-zones-fill', type: 'fill', source: 'war-zones', paint: { 'fill-color': '#ff0000', 'fill-opacity': 0.3 } });
+          map.current.addLayer({ id: 'war-zones-outline', type: 'line', source: 'war-zones', paint: { 'line-color': '#ff0000', 'line-width': 2 } });
+      }
+      if (!map.current.getSource('war-zone-drawing')) {
+          map.current.addSource('war-zone-drawing', { type: 'geojson', data: emptyGeoJSON });
+          map.current.addLayer({ id: 'war-zone-drawing-points', type: 'circle', source: 'war-zone-drawing', paint: { 'circle-radius': 5, 'circle-color': '#ff0000', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }, filter: ['in', '$type', 'Point'] });
+          map.current.addLayer({ id: 'war-zone-drawing-lines', type: 'line', source: 'war-zone-drawing', paint: { 'line-color': '#ff0000', 'line-width': 2.5, 'line-dasharray': [2, 2] }, filter: ['in', '$type', 'LineString'] });
+      }
     });
 
     map.current.on('click', 'places-markers', (e) => {
@@ -170,7 +183,7 @@ export default function MapExplorerPage() {
         map.current?.remove();
         map.current = null;
     }
-  }, [toast, mapStyle, places]);
+  }, [toast, mapStyle, places, warZones]);
   
   useEffect(() => {
     if (!map.current) return;
@@ -264,26 +277,74 @@ export default function MapExplorerPage() {
         source.setData(features);
     }
   }, [isMeasuring, measurementPoints]);
+  
+    const handleWarZoneClick = useCallback((e: mapboxgl.MapLayerMouseEvent) => {
+    if (!isMarkingWarZone || !map.current) return;
+
+    let currentPoints = [...warZonePoints];
+
+    if (currentPoints.length > 0) {
+      const firstPoint = turfPoint([currentPoints[0].lng, currentPoints[0].lat]);
+      const clickPoint = turfPoint([e.lngLat.lng, e.lngLat.lat]);
+      const dist = distance(firstPoint, clickPoint, { units: 'meters' });
+
+      if (dist < 20 * (map.current.getZoom() / 10) && currentPoints.length > 1) {
+        // Close polygon and create the final feature
+        currentPoints.push(currentPoints[0]);
+        const lineCoords = currentPoints.map(p => [p.lng, p.lat]);
+        const poly = polygon([lineCoords]);
+        setWarZones(prev => [...prev, poly]);
+        setWarZonePoints([]); // Reset for next drawing
+      } else {
+        currentPoints.push(e.lngLat);
+        setWarZonePoints(currentPoints);
+      }
+    } else {
+      currentPoints.push(e.lngLat);
+      setWarZonePoints(currentPoints);
+    }
+    
+    // Update the drawing layer
+    const drawingFeatures = featureCollection<any>([]);
+    if (currentPoints.length > 0) {
+        const pointFeatures = currentPoints.map((p, i) => turfPoint([p.lng, p.lat], { id: i }));
+        drawingFeatures.features.push(...pointFeatures);
+    }
+    if (currentPoints.length > 1) {
+        const lineCoords = currentPoints.map(p => [p.lng, p.lat]);
+        const line = lineString(lineCoords);
+        drawingFeatures.features.push(line);
+    }
+    const source = map.current.getSource('war-zone-drawing') as mapboxgl.GeoJSONSource;
+    if (source) {
+      source.setData(drawingFeatures);
+    }
+  }, [isMarkingWarZone, warZonePoints]);
+
 
   useEffect(() => {
     if (!map.current) return;
-
     if (isMeasuring) {
-        map.current.getCanvas().style.cursor = 'crosshair';
-        map.current.on('click', handleMapClick);
+      map.current.getCanvas().style.cursor = 'crosshair';
+      map.current.on('click', handleMapClick);
+    } else if (isMarkingWarZone) {
+      map.current.getCanvas().style.cursor = 'crosshair';
+      map.current.on('click', handleWarZoneClick);
     } else {
+      map.current.getCanvas().style.cursor = '';
+      map.current.off('click', handleMapClick);
+      map.current.off('click', handleWarZoneClick);
+    }
+    return () => {
+      if (map.current) {
         map.current.getCanvas().style.cursor = '';
         map.current.off('click', handleMapClick);
-    }
-    
-    return () => {
-        if(map.current) {
-            map.current.getCanvas().style.cursor = '';
-            map.current.off('click', handleMapClick);
-        }
-    }
-  }, [isMeasuring, handleMapClick]);
-  
+        map.current.off('click', handleWarZoneClick);
+      }
+    };
+  }, [isMeasuring, isMarkingWarZone, handleMapClick, handleWarZoneClick]);
+
+
   const clearMeasurement = useCallback(() => {
     setMeasurementPoints([]);
     setTotalDistance(0);
@@ -295,6 +356,21 @@ export default function MapExplorerPage() {
         }
     }
   }, []);
+  
+  const clearWarZoneDrawing = useCallback(() => {
+    setWarZonePoints([]);
+    if (map.current) {
+      const source = map.current.getSource('war-zone-drawing') as mapboxgl.GeoJSONSource;
+      if (source) {
+        source.setData(emptyGeoJSON);
+      }
+    }
+  }, []);
+  
+  const clearLastWarZone = () => {
+      setWarZones(prev => prev.slice(0, -1));
+  };
+
 
   const toggleTraffic = () => {
     if (mapStyle !== 'standard' && mapStyle !== 'streets-v12') {
@@ -307,11 +383,22 @@ export default function MapExplorerPage() {
   }
 
   const toggleMeasurement = () => {
+    if (isMarkingWarZone) setIsMarkingWarZone(false);
     setIsMeasuring(prev => {
         if (prev) {
             clearMeasurement();
         }
         return !prev;
+    });
+  };
+  
+  const toggleMarkWarZone = () => {
+    if (isMeasuring) setIsMeasuring(false);
+    setIsMarkingWarZone(prev => {
+      if (prev) {
+        clearWarZoneDrawing();
+      }
+      return !prev;
     });
   };
 
@@ -346,8 +433,10 @@ export default function MapExplorerPage() {
         onToggleMeasurement={toggleMeasurement}
         onToggleDirections={() => setShowDirectionsPanel(prev => !prev)}
         onToggleLayers={() => setShowStyleControl(prev => !prev)}
+        onToggleMarkWarZone={toggleMarkWarZone}
         showTraffic={showTraffic}
         isMeasuring={isMeasuring}
+        isMarkingWarZone={isMarkingWarZone}
         showDirections={showDirectionsPanel}
         showLayers={showStyleControl}
       />
@@ -395,6 +484,17 @@ export default function MapExplorerPage() {
               )}
             </div>
             <Button size="sm" variant="destructive" onClick={clearMeasurement}>Clear</Button>
+        </div>
+      )}
+      {isMarkingWarZone && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 bg-card/80 backdrop-blur-sm p-3 rounded-lg shadow-md flex items-center gap-4 text-card-foreground">
+          <div className="flex flex-col text-sm font-semibold">
+            <p>Marking Conflict Zone</p>
+            {warZonePoints.length > 0 && <p className="text-xs text-muted-foreground font-normal">Click first point to close shape.</p>}
+          </div>
+          <Button size="sm" variant="destructive" onClick={clearLastWarZone} disabled={warZones.length === 0}>
+            Clear Last
+          </Button>
         </div>
       )}
     </div>

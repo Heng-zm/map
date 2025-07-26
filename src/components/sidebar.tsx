@@ -1,7 +1,7 @@
 
 'use client';
 
-import { TrafficCone, Ruler, Navigation, Layers } from "lucide-react";
+import { TrafficCone, Ruler, Navigation, Layers, ShieldAlert } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface SidebarProps {
@@ -9,8 +9,10 @@ interface SidebarProps {
     onToggleMeasurement: () => void;
     onToggleDirections: () => void;
     onToggleLayers: () => void;
+    onToggleMarkWarZone: () => void;
     showTraffic: boolean;
     isMeasuring: boolean;
+    isMarkingWarZone: boolean;
     showDirections: boolean;
     showLayers: boolean;
 }
@@ -20,8 +22,10 @@ export function Sidebar({
     onToggleMeasurement, 
     onToggleDirections,
     onToggleLayers,
+    onToggleMarkWarZone,
     showTraffic,
     isMeasuring,
+    isMarkingWarZone,
     showDirections,
     showLayers
 }: SidebarProps) {
@@ -59,6 +63,14 @@ export function Sidebar({
             onClick={onToggleLayers}
         >
             <Layers />
+        </Button>
+        <Button 
+            variant={isMarkingWarZone ? 'secondary' : 'ghost'}
+            size="icon" 
+            className="rounded-full"
+            onClick={onToggleMarkWarZone}
+        >
+            <ShieldAlert />
         </Button>
       </div>
     </div>
