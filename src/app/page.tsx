@@ -4,12 +4,6 @@ import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
-import { analyzeLocation } from '@/ai/flows/location-analysis-flow';
-import { LocationAnalysisOutput } from '@/ai/schemas';
-import {
-  Sheet,
-  SheetContent,
-} from "@/components/ui/sheet"
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -25,54 +19,14 @@ const initialZoom = 13;
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const marker = useRef<mapboxgl.Marker | null>(null);
   const { toast } = useToast();
-  const [analysis, setAnalysis] = useState<LocationAnalysisOutput | null>(null);
-  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-
-
-  const fetchLocationAnalysis = async (lat: number, lng: number) => {
-    setLoadingAnalysis(true);
-    setIsSheetOpen(true);
-    setAnalysis(null);
-    
-    if (marker.current) {
-      marker.current.setLngLat([lng, lat]);
-    } else {
-      const el = document.createElement('div');
-      el.className = 'custom-marker';
-      el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000"/><path d="M12 9.5m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0" stroke="white" stroke-width="1.5"/></svg>`;
-      if (map.current) {
-        marker.current = new mapboxgl.Marker(el)
-          .setLngLat([lng, lat])
-          .addTo(map.current!);
-      }
-    }
-
-    try {
-      const analysisData = await analyzeLocation({ latitude: lat, longitude: lng });
-      setAnalysis(analysisData);
-      
-    } catch (error) {
-      console.error("Failed to fetch location analysis", error);
-      toast({
-        variant: "destructive",
-        title: "មិនអាចវិភាគទីតាំងបានទេ",
-        description: "មានបញ្ហាពេលកំពុងវិភាគទីតាំង។",
-      });
-      setIsSheetOpen(false);
-    } finally {
-      setLoadingAnalysis(false);
-    }
-  }
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     if (!mapboxgl.accessToken) {
         toast({
             variant: "destructive",
-            title: "โทខេន Mapbox មិនត្រូវបានកំណត់ទេ",
+            title: "โทខេน Mapbox មិនត្រូវបានកំណត់ទេ",
             description: "សូមផ្ដល់โทខេន Mapbox នៅក្នុងអថេរបរិស្ថានរបស់អ្នក។",
         });
         return;
@@ -104,24 +58,15 @@ export default function MapExplorerPage() {
           (position) => {
             const { latitude, longitude } = position.coords;
             map.current?.setCenter([longitude, latitude]);
-            fetchLocationAnalysis(latitude, longitude);
           },
           () => {
             toast({
               title: "ការចូលដំណើរការទីតាំងត្រូវបានបដិសេធ",
-              description: "កំពុងបង្ហាញទីតាំងលំនាំដើម។ ចុចលើផែនទីដើម្បីមើលការវិភាគ។",
+              description: "កំពុងបង្ហាញទីតាំងលំនាំដើម។",
             });
-            fetchLocationAnalysis(initialCenter[1], initialCenter[0]);
           }
         );
-      } else {
-        fetchLocationAnalysis(initialCenter[1], initialCenter[0]);
       }
-    });
-
-    map.current.on('click', async (e) => {
-      const { lat, lng } = e.lngLat;
-      fetchLocationAnalysis(lat, lng);
     });
 
     return () => {
@@ -130,32 +75,9 @@ export default function MapExplorerPage() {
     }
   }, [toast]);
 
-  const handleSheetOpenChange = (open: boolean) => {
-    setIsSheetOpen(open);
-    if (!open) {
-        setAnalysis(null);
-    }
-  }
-  
-
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-      <Sheet open={isSheetOpen} onOpenChange={handleSheetOpenChange}>
-        <SheetContent side="top" className="bg-black/70 text-white backdrop-blur-md border-none" overlayClassName="bg-transparent">
-            <h1 className="text-xl font-bold text-center">ការវិភាគទីតាំង</h1>
-            {loadingAnalysis && <p className="mt-4 text-center">កំពុងវិភាគទីតាំង...</p>}
-            {analysis && (
-            <div className="mt-4 flex flex-col items-center text-center">
-                <p className="text-lg font-semibold">{analysis.locationName}</p>
-                <p className="mt-2 text-sm">{analysis.analysis}</p>
-            </div>
-            )}
-            {!loadingAnalysis && !analysis && (
-              <p className="mt-4 text-center">ចុចលើផែនទីដើម្បីវិភាគទីតាំង</p>
-            )}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
