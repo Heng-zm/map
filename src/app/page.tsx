@@ -58,8 +58,8 @@ export default function MapExplorerPage() {
       console.error("Failed to fetch location analysis", error);
       toast({
         variant: "destructive",
-        title: "Could not analyze location",
-        description: "An error occurred while analyzing the location.",
+        title: "មិនអាចវិភាគទីតាំងបានទេ",
+        description: "មានបញ្ហាពេលកំពុងវិភាគទីតាំង។",
       });
       setIsSheetOpen(false);
     } finally {
@@ -72,8 +72,8 @@ export default function MapExplorerPage() {
     if (!mapboxgl.accessToken) {
         toast({
             variant: "destructive",
-            title: "Mapbox token not set",
-            description: "Please provide a Mapbox access token in your environment variables.",
+            title: "โทខេន Mapbox មិនត្រូវបានកំណត់ទេ",
+            description: "សូមផ្ដល់โทខេន Mapbox នៅក្នុងអថេរបរិស្ថានរបស់អ្នក។",
         });
         return;
     }
@@ -108,8 +108,8 @@ export default function MapExplorerPage() {
           },
           () => {
             toast({
-              title: "Location Access Denied",
-              description: "Showing default location. Click on the map to see analysis.",
+              title: "ការចូលដំណើរការទីតាំងត្រូវបានបដិសេធ",
+              description: "កំពុងបង្ហាញទីតាំងលំនាំដើម។ ចុចលើផែនទីដើម្បីមើលការវិភាគ។",
             });
             fetchLocationAnalysis(initialCenter[1], initialCenter[0]);
           }

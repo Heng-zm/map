@@ -18,7 +18,7 @@ const prompt = ai.definePrompt({
     name: 'locationAnalysisPrompt',
     input: { schema: LocationAnalysisInputSchema },
     output: { schema: LocationAnalysisOutputSchema },
-    prompt: `Analyze the location at latitude: {{latitude}} and longitude: {{longitude}}. Provide a concise and interesting analysis of the location. Include details about its geography, history, and any notable points of interest. Also, provide the name of the location.`,
+    prompt: `Analyze the location at latitude: {{latitude}} and longitude: {{longitude}}. Provide a concise and interesting analysis of the location in Khmer. Include details about its geography, history, and any notable points of interest. Also, provide the name of the location in Khmer.`,
 });
 
 const locationAnalysisFlow = ai.defineFlow(
