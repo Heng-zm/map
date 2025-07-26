@@ -103,7 +103,7 @@ export default function MapExplorerPage() {
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
       <div className={cn(
-          "absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-md bg-black/70 p-4 text-white backdrop-blur-md rounded-lg shadow-lg transition-all duration-500 ease-in-out",
+          "absolute top-4 w-full bg-black/70 p-4 text-white backdrop-blur-md rounded-lg shadow-lg transition-all duration-500 ease-in-out",
           (loadingWeather || weather) ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
       )}>
           <h1 className="text-xl font-bold">Weather</h1>
