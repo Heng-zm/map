@@ -8,7 +8,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download, RotateCw, Layers, PenTool, Search, Compass } from 'lucide-react';
+import { Download, RotateCw, PenTool, Search, Compass } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   SidebarProvider,
