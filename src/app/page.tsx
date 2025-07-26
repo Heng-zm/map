@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download, RotateCw } from 'lucide-react';
+import { Download, RotateCw, Layers } from 'lucide-react';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -17,6 +17,13 @@ const containerStyle = {
 const initialCenter: [number, number] = [104.9282, 11.5564];
 const initialZoom = 13;
 
+const mapStyles = [
+  { name: 'Outdoors', style: 'mapbox://styles/mapbox/outdoors-v12' },
+  { name: 'Streets', style: 'mapbox://styles/mapbox/streets-v12' },
+  { name: 'Satellite', style: 'mapbox://styles/mapbox/satellite-streets-v12' },
+  { name: 'Light', style: 'mapbox://styles/mapbox/light-v11' },
+  { name: 'Dark', style: 'mapbox://styles/mapbox/dark-v11' },
+];
 
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
@@ -24,6 +31,7 @@ export default function MapExplorerPage() {
   const { toast } = useToast();
   const [isRotating, setIsRotating] = useState(false);
   const animationFrameId = useRef<number | null>(null);
+  const [currentStyleIndex, setCurrentStyleIndex] = useState(0);
 
   const startRotation = () => {
     if (animationFrameId.current) {
@@ -45,21 +53,35 @@ export default function MapExplorerPage() {
     }
     setIsRotating(false);
   }
+  
+  const setMapTerrain = () => {
+    if(!map.current) return;
+
+    if (!map.current.getSource('mapbox-dem')) {
+        map.current.addSource('mapbox-dem', {
+          'type': 'raster-dem',
+          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          'tileSize': 512,
+          'maxzoom': 14
+        });
+    }
+    map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+  }
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     if (!mapboxgl.accessToken) {
         toast({
             variant: "destructive",
-            title: "โทเค็น Mapbox ไม่ได้ตั้งค่า",
-            description: "โปรดระบุโทเค็น Mapbox ในตัวแปรสภาพแวดล้อมของคุณ",
+            title: "Mapbox token not set",
+            description: "Please provide your Mapbox token in your environment variables.",
         });
         return;
     }
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/outdoors-v12',
+      style: mapStyles[currentStyleIndex].style,
       center: initialCenter,
       zoom: initialZoom,
       pitch: 60,
@@ -68,18 +90,10 @@ export default function MapExplorerPage() {
     });
     
     map.current.on('style.load', () => {
-      if(!map.current) return;
+      setMapTerrain();
+    });
 
-      if (!map.current.getSource('mapbox-dem')) {
-          map.current.addSource('mapbox-dem', {
-            'type': 'raster-dem',
-            'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-            'tileSize': 512,
-            'maxzoom': 14
-          });
-      }
-      map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-
+    map.current.on('load', () => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -88,13 +102,13 @@ export default function MapExplorerPage() {
           },
           () => {
             toast({
-              title: "ការចូលដំណើរការទីតាំងត្រូវបានបដិសេធ",
-              description: "កំពុងបង្ហាញទីតាំងលំនាំដើម។",
+              title: "Location access denied",
+              description: "Showing default location.",
             });
           }
         );
       }
-    });
+    })
 
     return () => {
         if (animationFrameId.current) {
@@ -104,7 +118,6 @@ export default function MapExplorerPage() {
         map.current = null;
     }
   }, [toast]);
-  
 
   const handleToggleRotation = () => {
     if (isRotating) {
@@ -120,7 +133,6 @@ export default function MapExplorerPage() {
     const mapInstance = map.current;
     const container = mapContainer.current;
 
-    const mapCanvas = mapInstance.getCanvas();
     const originalWidth = mapCanvas.clientWidth;
     const originalHeight = mapCanvas.clientHeight;
     
@@ -130,6 +142,8 @@ export default function MapExplorerPage() {
     const newWidth = originalWidth * scale;
     const newHeight = originalHeight * scale;
 
+    // Temporarily resize container to render high-res image
+    const mapCanvas = mapInstance.getCanvas();
     container.style.width = `${newWidth}px`;
     container.style.height = `${newHeight}px`;
     mapInstance.resize();
@@ -143,17 +157,32 @@ export default function MapExplorerPage() {
       link.click();
       document.body.removeChild(link);
 
+      // Restore original container size
       container.style.width = `${originalWidth}px`;
       container.style.height = `${originalHeight}px`;
       mapInstance.resize();
     });
   };
+  
+  const handleSwitchStyle = () => {
+    if(!map.current) return;
+    const nextStyleIndex = (currentStyleIndex + 1) % mapStyles.length;
+    setCurrentStyleIndex(nextStyleIndex);
+    map.current.setStyle(mapStyles[nextStyleIndex].style);
+    toast({
+        title: "Map style changed",
+        description: `Switched to ${mapStyles[nextStyleIndex].name}`,
+    });
+  }
 
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
       <div className="absolute top-4 right-4 flex gap-2">
+        <Button onClick={handleSwitchStyle} size="icon">
+            <Layers />
+        </Button>
         <Button onClick={handleToggleRotation} size="icon" variant={isRotating ? "secondary" : "default"}>
           <RotateCw className={isRotating ? 'animate-spin' : ''}/>
         </Button>
