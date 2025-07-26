@@ -69,73 +69,77 @@ export default function MapExplorerPage() {
     
     map.current.on('style.load', () => {
       if(map.current) {
-        map.current.addSource('mapbox-dem', {
-          'type': 'raster-dem',
-          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-          'tileSize': 512,
-          'maxzoom': 14
-        });
+        if (!map.current.getSource('mapbox-dem')) {
+            map.current.addSource('mapbox-dem', {
+              'type': 'raster-dem',
+              'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+              'tileSize': 512,
+              'maxzoom': 14
+            });
+        }
         map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
       }
       
-      map.current?.addSource('measurement', {
-        type: 'geojson',
-        data: emptyGeoJSON
-      });
-      map.current?.addLayer({
-        id: 'measurement-points',
-        type: 'circle',
-        source: 'measurement',
-        paint: {
-            'circle-radius': 5,
-            'circle-color': '#fff',
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#000'
-        },
-        filter: ['in', '$type', 'Point']
-      });
-      map.current?.addLayer({
-        id: 'measurement-lines',
-        type: 'line',
-        source: 'measurement',
-        layout: {
-            'line-cap': 'round',
-            'line-join': 'round'
-        },
-        paint: {
-            'line-color': '#000',
-            'line-width': 2.5
-        },
-        filter: ['in', '$type', 'LineString']
-      });
-      map.current?.addLayer({
-        id: 'measurement-area',
-        type: 'fill',
-        source: 'measurement',
-        paint: {
-          'fill-color': '#0070f3',
-          'fill-opacity': 0.1
-        },
-        filter: ['in', '$type', 'Polygon']
-      });
-       map.current?.addLayer({
-        id: 'measurement-labels',
-        type: 'symbol',
-        source: 'measurement',
-        layout: {
-          'text-field': ['get', 'label'],
-          'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
-          'text-offset': [0, 0.8],
-          'text-anchor': 'top',
-          'text-size': 12
-        },
-        paint: {
-          'text-color': '#000',
-          'text-halo-color': '#fff',
-          'text-halo-width': 1
-        },
-        filter: ['has', 'label']
-      });
+      if (map.current && !map.current.getSource('measurement')) {
+        map.current?.addSource('measurement', {
+            type: 'geojson',
+            data: emptyGeoJSON
+        });
+        map.current?.addLayer({
+            id: 'measurement-points',
+            type: 'circle',
+            source: 'measurement',
+            paint: {
+                'circle-radius': 5,
+                'circle-color': '#fff',
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#000'
+            },
+            filter: ['in', '$type', 'Point']
+        });
+        map.current?.addLayer({
+            id: 'measurement-lines',
+            type: 'line',
+            source: 'measurement',
+            layout: {
+                'line-cap': 'round',
+                'line-join': 'round'
+            },
+            paint: {
+                'line-color': '#000',
+                'line-width': 2.5
+            },
+            filter: ['in', '$type', 'LineString']
+        });
+        map.current?.addLayer({
+            id: 'measurement-area',
+            type: 'fill',
+            source: 'measurement',
+            paint: {
+            'fill-color': '#0070f3',
+            'fill-opacity': 0.1
+            },
+            filter: ['in', '$type', 'Polygon']
+        });
+        map.current?.addLayer({
+            id: 'measurement-labels',
+            type: 'symbol',
+            source: 'measurement',
+            layout: {
+            'text-field': ['get', 'label'],
+            'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+            'text-offset': [0, 0.8],
+            'text-anchor': 'top',
+            'text-size': 12
+            },
+            paint: {
+            'text-color': '#000',
+            'text-halo-color': '#fff',
+            'text-halo-width': 1
+            },
+            filter: ['has', 'label']
+        });
+      }
     });
 
     return () => {
