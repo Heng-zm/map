@@ -24,6 +24,7 @@ const initialCenter: [number, number] = [104.9282, 11.5564];
 const initialZoom = 13;
 
 const mapStyles = [
+  { name: 'Standard', style: 'mapbox://styles/mapbox/standard' },
   { name: 'Outdoors', style: 'mapbox://styles/mapbox/outdoors-v12' },
   { name: 'Streets', style: 'mapbox://styles/mapbox/streets-v12' },
   { name: 'Satellite', style: 'mapbox://styles/mapbox/satellite-streets-v12' },
@@ -123,7 +124,7 @@ export default function MapExplorerPage() {
         map.current?.remove();
         map.current = null;
     }
-  }, [toast]);
+  }, [toast, currentStyleIndex]);
 
   const handleToggleRotation = () => {
     if (isRotating) {
@@ -139,7 +140,6 @@ export default function MapExplorerPage() {
     const mapInstance = map.current;
     const container = mapContainer.current;
 
-    const mapCanvas = mapInstance.getCanvas();
     const originalWidth = mapCanvas.clientWidth;
     const originalHeight = mapCanvas.clientHeight;
     
