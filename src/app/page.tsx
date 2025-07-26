@@ -5,11 +5,13 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { TrafficCone, Ruler } from 'lucide-react';
+import { TrafficCone, Ruler, Layers } from 'lucide-react';
 import { lineString, polygon, featureCollection, point as turfPoint } from '@turf/helpers';
 import length from '@turf/length';
 import area from '@turf/area';
 import distance from '@turf/distance';
+import { MapStyleControl, type MapStyle } from '@/components/map-style-control';
+
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -20,7 +22,6 @@ const containerStyle = {
 
 const initialCenter: [number, number] = [104.9282, 11.5564];
 const initialZoom = 13;
-const initialStyle = 'mapbox://styles/mapbox/standard';
 
 const emptyGeoJSON = {
     type: 'FeatureCollection' as const,
@@ -36,7 +37,14 @@ export default function MapExplorerPage() {
   const [totalDistance, setTotalDistance] = useState(0);
   const [totalArea, setTotalArea] = useState(0);
   const [measurementPoints, setMeasurementPoints] = useState<mapboxgl.LngLat[]>([]);
+  const [mapStyle, setMapStyle] = useState<MapStyle>('standard');
+  const [showStyleControl, setShowStyleControl] = useState(false);
 
+  const setStyle = useCallback((style: MapStyle) => {
+    if (!map.current) return;
+    map.current.setStyle(`mapbox://styles/mapbox/${style}`);
+    setMapStyle(style);
+  }, []);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -51,7 +59,7 @@ export default function MapExplorerPage() {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: initialStyle,
+      style: `mapbox://styles/mapbox/${mapStyle}`,
       center: initialCenter,
       zoom: initialZoom,
       pitch: 45,
@@ -60,8 +68,14 @@ export default function MapExplorerPage() {
     map.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-left');
     
     map.current.on('style.load', () => {
-      if (map.current?.getSource('mapbox-dem')) {
-        map.current?.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+      if(map.current) {
+        map.current.addSource('mapbox-dem', {
+          'type': 'raster-dem',
+          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          'tileSize': 512,
+          'maxzoom': 14
+        });
+        map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
       }
       
       map.current?.addSource('measurement', {
@@ -122,23 +136,22 @@ export default function MapExplorerPage() {
         },
         filter: ['has', 'label']
       });
-
     });
 
     return () => {
         map.current?.remove();
         map.current = null;
     }
-  }, [toast]);
+  }, [toast, mapStyle]);
 
   useEffect(() => {
-    if (!map.current) return;
+    if (!map.current || mapStyle !== 'standard') return;
     if (showTraffic) {
       map.current.setConfigProperty('basemap', 'showTraffic', true);
     } else {
       map.current.setConfigProperty('basemap', 'showTraffic', false);
     }
-  }, [showTraffic, map]);
+  }, [showTraffic, map, mapStyle]);
 
   const handleMapClick = useCallback((e: mapboxgl.MapLayerMouseEvent) => {
     if (!isMeasuring || !map.current) return;
@@ -237,6 +250,12 @@ export default function MapExplorerPage() {
   }, []);
 
   const toggleTraffic = () => {
+    if (mapStyle !== 'standard') {
+      toast({
+        description: "Traffic is only available on the Standard map style.",
+      });
+      return;
+    }
     setShowTraffic(prev => !prev);
   }
 
@@ -271,7 +290,24 @@ export default function MapExplorerPage() {
         >
           <Ruler className="h-5 w-5" />
         </Button>
+         <Button
+          size="icon"
+          onClick={() => setShowStyleControl(prev => !prev)}
+          variant={showStyleControl ? 'secondary' : 'outline'}
+          className="bg-white/75 text-black backdrop-blur-sm transition-all hover:bg-white"
+          aria-label="Toggle map styles"
+        >
+          <Layers className="h-5 w-5" />
+        </Button>
       </div>
+
+       {showStyleControl && (
+        <MapStyleControl 
+          currentStyle={mapStyle} 
+          onStyleChange={setStyle} 
+          className="absolute top-24 right-2.5 z-10"
+        />
+       )}
 
        {isMeasuring && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-white/75 backdrop-blur-sm p-3 rounded-lg shadow-md flex items-center gap-4">
