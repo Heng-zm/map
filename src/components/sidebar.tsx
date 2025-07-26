@@ -1,7 +1,7 @@
 
 'use client';
 
-import { TrafficCone, Ruler, Navigation, Layers, ShieldAlert } from "lucide-react";
+import { TrafficCone, Ruler, Navigation, Layers, ShieldAlert, Cloudy, Sun } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface SidebarProps {
@@ -10,11 +10,15 @@ interface SidebarProps {
     onToggleDirections: () => void;
     onToggleLayers: () => void;
     onToggleMarkWarZone: () => void;
+    onToggleWeather: () => void;
+    onToggle3D: () => void;
     showTraffic: boolean;
     isMeasuring: boolean;
     isMarkingWarZone: boolean;
     showDirections: boolean;
     showLayers: boolean;
+    showWeather: boolean;
+    show3D: boolean;
 }
 
 export function Sidebar({ 
@@ -23,11 +27,15 @@ export function Sidebar({
     onToggleDirections,
     onToggleLayers,
     onToggleMarkWarZone,
+    onToggleWeather,
+    onToggle3D,
     showTraffic,
     isMeasuring,
     isMarkingWarZone,
     showDirections,
-    showLayers
+    showLayers,
+    showWeather,
+    show3D
 }: SidebarProps) {
   return (
     <div className="absolute top-1/2 -translate-y-1/2 left-4 z-20">
@@ -71,6 +79,22 @@ export function Sidebar({
             onClick={onToggleMarkWarZone}
         >
             <ShieldAlert />
+        </Button>
+        <Button 
+            variant={showWeather ? 'secondary' : 'ghost'}
+            size="icon" 
+            className="rounded-full"
+            onClick={onToggleWeather}
+        >
+            <Cloudy />
+        </Button>
+        <Button 
+            variant={show3D ? 'secondary' : 'ghost'}
+            size="icon" 
+            className="rounded-full"
+            onClick={onToggle3D}
+        >
+            <Sun />
         </Button>
       </div>
     </div>

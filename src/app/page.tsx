@@ -22,6 +22,7 @@ import { ChatPanel } from '@/components/chat-panel';
 import { PlaceDetails } from '@/components/place-details';
 import { listPlaces, ListPlacesOutput } from '@/ai/flows/list-places-flow';
 import { Place } from '@/ai/schemas';
+import { getWeather } from '@/ai/flows/weather-flow';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -58,6 +59,8 @@ export default function MapExplorerPage() {
   const [isMarkingWarZone, setIsMarkingWarZone] = useState(false);
   const [warZonePoints, setWarZonePoints] = useState<mapboxgl.LngLat[]>([]);
   const [warZones, setWarZones] = useState<Feature<any>[]>([]);
+  const [showWeather, setShowWeather] = useState(false);
+  const [show3D, setShow3D] = useState(true);
   
   const setStyle = useCallback((style: MapStyle) => {
     if (!map.current) return;
@@ -105,6 +108,18 @@ export default function MapExplorerPage() {
     
     map.current.on('style.load', () => {
       if(!map.current) return;
+      if (show3D) {
+        map.current.setFog({
+            'range': [-1, 2],
+            'horizon-blend': 0.3,
+            'color': 'white',
+            'high-color': '#add8e6',
+            'space-color': '#d8f2ff',
+            'star-intensity': 0.0
+        });
+        map.current.setLight({anchor: 'viewport', color: '#ff0000', intensity: 0.3});
+      }
+
 
       if (!map.current.getSource('mapbox-dem')) {
           map.current.addSource('mapbox-dem', {
@@ -159,6 +174,10 @@ export default function MapExplorerPage() {
           map.current.addLayer({ id: 'war-zone-drawing-points', type: 'circle', source: 'war-zone-drawing', paint: { 'circle-radius': 5, 'circle-color': '#ff0000', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }, filter: ['in', '$type', 'Point'] });
           map.current.addLayer({ id: 'war-zone-drawing-lines', type: 'line', source: 'war-zone-drawing', paint: { 'line-color': '#ff0000', 'line-width': 2.5, 'line-dasharray': [2, 2] }, filter: ['in', '$type', 'LineString'] });
       }
+       if (!map.current.getSource('weather')) {
+        map.current.addSource('weather', { type: 'geojson', data: emptyGeoJSON });
+        map.current.addLayer({ id: 'weather-precipitation', type: 'fill', source: 'weather', paint: { 'fill-color': '#00ffff', 'fill-opacity': 0.4 } });
+       }
     });
 
     map.current.on('click', 'places-markers', (e) => {
@@ -183,7 +202,7 @@ export default function MapExplorerPage() {
         map.current?.remove();
         map.current = null;
     }
-  }, [toast, mapStyle, places, warZones]);
+  }, [toast, mapStyle, places, warZones, show3D]);
   
   useEffect(() => {
     if (!map.current) return;
@@ -424,6 +443,48 @@ export default function MapExplorerPage() {
     }
   };
 
+  const toggleWeather = async () => {
+    const newShowWeather = !showWeather;
+    setShowWeather(newShowWeather);
+    if (newShowWeather && map.current) {
+        const bounds = map.current.getBounds();
+        const weatherData = await getWeather({
+            northEast: { latitude: bounds.getNorthEast().lat, longitude: bounds.getNorthEast().lng },
+            southWest: { latitude: bounds.getSouthWest().lat, longitude: bounds.getSouthWest().lng }
+        });
+        const source = map.current.getSource('weather') as mapboxgl.GeoJSONSource;
+        if(source) {
+            source.setData(featureCollection(weatherData.map(f => polygon(f.polygon, { type: f.type }))));
+        }
+    } else if (map.current) {
+         const source = map.current.getSource('weather') as mapboxgl.GeoJSONSource;
+         if (source) {
+            source.setData(emptyGeoJSON);
+         }
+    }
+  };
+  
+  const toggle3D = () => {
+    setShow3D(prev => !prev);
+    if(map.current) {
+        if(!show3D) {
+            map.current.setFog({
+                'range': [-1, 2],
+                'horizon-blend': 0.3,
+                'color': 'white',
+                'high-color': '#add8e6',
+                'space-color': '#d8f2ff',
+                'star-intensity': 0.0
+            });
+            map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        } else {
+            map.current.setFog({});
+            map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 0 });
+        }
+    }
+  };
+
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
@@ -434,11 +495,15 @@ export default function MapExplorerPage() {
         onToggleDirections={() => setShowDirectionsPanel(prev => !prev)}
         onToggleLayers={() => setShowStyleControl(prev => !prev)}
         onToggleMarkWarZone={toggleMarkWarZone}
+        onToggleWeather={toggleWeather}
+        onToggle3D={toggle3D}
         showTraffic={showTraffic}
         isMeasuring={isMeasuring}
         isMarkingWarZone={isMarkingWarZone}
         showDirections={showDirectionsPanel}
         showLayers={showStyleControl}
+        showWeather={showWeather}
+        show3D={show3D}
       />
       <BottomNav onPanelChange={handlePanelChange} activePanel={activePanel} />
       

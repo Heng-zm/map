@@ -74,3 +74,29 @@ export const ChatInputSchema = z.object({
     history: z.array(ChatMessageSchema),
 });
 export type ChatInput = z.infer<typeof ChatInputSchema>;
+
+
+/**
+ * Defines the input for the `getWeather` flow, which includes the geographic
+ * boundaries of the map view.
+ */
+export const WeatherInputSchema = z.object({
+  northEast: LocationSchema.describe('The northeast corner of the current map view.'),
+  southWest: LocationSchema.describe('The southwest corner of the current map view.'),
+});
+export type WeatherInput = z.infer<typeof WeatherInputSchema>;
+
+/**
+ * Defines a single weather feature, like a patch of rain or cloud cover.
+ */
+export const WeatherFeatureSchema = z.object({
+    type: z.enum(['rain', 'snow', 'cloud']).describe('The type of weather phenomenon.'),
+    polygon: z.array(z.array(z.number())).describe('A GeoJSON-style polygon representing the area of the weather feature.'),
+});
+export type WeatherFeature = z.infer<typeof WeatherFeatureSchema>;
+
+/**
+ * Defines the output for the `getWeather` flow, which is a list of weather features.
+ */
+export const WeatherOutputSchema = z.array(WeatherFeatureSchema);
+export type WeatherOutput = z.infer<typeof WeatherOutputSchema>;
