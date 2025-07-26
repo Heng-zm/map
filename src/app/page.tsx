@@ -6,6 +6,12 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Download, RotateCw, Layers } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -133,6 +139,7 @@ export default function MapExplorerPage() {
     const mapInstance = map.current;
     const container = mapContainer.current;
 
+    const mapCanvas = mapInstance.getCanvas();
     const originalWidth = mapCanvas.clientWidth;
     const originalHeight = mapCanvas.clientHeight;
     
@@ -142,8 +149,6 @@ export default function MapExplorerPage() {
     const newWidth = originalWidth * scale;
     const newHeight = originalHeight * scale;
 
-    // Temporarily resize container to render high-res image
-    const mapCanvas = mapInstance.getCanvas();
     container.style.width = `${newWidth}px`;
     container.style.height = `${newHeight}px`;
     mapInstance.resize();
@@ -157,21 +162,19 @@ export default function MapExplorerPage() {
       link.click();
       document.body.removeChild(link);
 
-      // Restore original container size
       container.style.width = `${originalWidth}px`;
       container.style.height = `${originalHeight}px`;
       mapInstance.resize();
     });
   };
   
-  const handleSwitchStyle = () => {
+  const handleSwitchStyle = (index: number) => {
     if(!map.current) return;
-    const nextStyleIndex = (currentStyleIndex + 1) % mapStyles.length;
-    setCurrentStyleIndex(nextStyleIndex);
-    map.current.setStyle(mapStyles[nextStyleIndex].style);
+    setCurrentStyleIndex(index);
+    map.current.setStyle(mapStyles[index].style);
     toast({
         title: "Map style changed",
-        description: `Switched to ${mapStyles[nextStyleIndex].name}`,
+        description: `Switched to ${mapStyles[index].name}`,
     });
   }
 
@@ -180,9 +183,20 @@ export default function MapExplorerPage() {
     <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
       <div className="absolute top-4 right-4 flex gap-2">
-        <Button onClick={handleSwitchStyle} size="icon">
-            <Layers />
-        </Button>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button size="icon">
+                    <Layers />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                {mapStyles.map((style, index) => (
+                    <DropdownMenuItem key={style.name} onClick={() => handleSwitchStyle(index)}>
+                        {style.name}
+                    </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+        </DropdownMenu>
         <Button onClick={handleToggleRotation} size="icon" variant={isRotating ? "secondary" : "default"}>
           <RotateCw className={isRotating ? 'animate-spin' : ''}/>
         </Button>
