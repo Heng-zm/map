@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import * as turf from '@turf/turf';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
@@ -76,6 +77,28 @@ export default function MapExplorerPage() {
     map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
   }
 
+  const calculateAndShowMeasurement = (features: any[]) => {
+    if (features.length === 0) return;
+
+    const feature = features[0];
+    let measurementText = '';
+
+    if (feature.geometry.type === 'Polygon') {
+      const area = turf.area(feature);
+      measurementText = `Area: ${(area / 1000000).toFixed(2)} km²`;
+    } else if (feature.geometry.type === 'LineString') {
+      const length = turf.length(feature, { units: 'kilometers' });
+      measurementText = `Length: ${length.toFixed(2)} km`;
+    }
+
+    if (measurementText) {
+      toast({
+        title: 'Measurement',
+        description: measurementText,
+      });
+    }
+  };
+
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     if (!mapboxgl.accessToken) {
@@ -127,6 +150,9 @@ export default function MapExplorerPage() {
           }
         );
       }
+      map.current?.on('draw.create', (e) => calculateAndShowMeasurement(e.features));
+      map.current?.on('draw.update', (e) => calculateAndShowMeasurement(e.features));
+      map.current?.on('draw.selectionchange', (e) => calculateAndShowMeasurement(e.features));
     });
 
     return () => {
@@ -148,6 +174,7 @@ export default function MapExplorerPage() {
 
   const handleDownloadMap = () => {
     if (!map.current || !mapContainer.current) return;
+    stopRotation();
 
     const mapInstance = map.current;
     const container = mapContainer.current;
@@ -175,7 +202,7 @@ export default function MapExplorerPage() {
       document.body.removeChild(link);
 
       container.style.width = `${originalWidth}px`;
-      container.style.height = `${newHeight}px`;
+      container.style.height = `${originalHeight}px`;
       mapInstance.resize();
     });
   };
@@ -196,9 +223,11 @@ export default function MapExplorerPage() {
     const newIsDrawing = !isDrawing;
     setIsDrawing(newIsDrawing);
 
-    if (newIsDrawing) {
+    const currentMode = draw.current.getMode();
+    
+    if (newIsDrawing && currentMode === 'simple_select') {
       draw.current.changeMode('draw_polygon');
-    } else {
+    } else if (!newIsDrawing && currentMode !== 'simple_select') {
       draw.current.changeMode('simple_select');
     }
   };
