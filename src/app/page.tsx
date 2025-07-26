@@ -83,7 +83,10 @@ export default function MapExplorerPage() {
         const mapCanvas = map.current.getCanvas();
         const originalWidth = mapCanvas.width;
         const originalHeight = mapCanvas.height;
-        const scale = 2; // Increase for higher resolution
+
+        const targetWidth = 3000;
+        const targetHeight = 3000;
+        const scale = Math.min(targetWidth / originalWidth, targetHeight / originalHeight);
 
         if (mapContainer.current) {
             mapContainer.current.style.width = `${originalWidth * scale}px`;
@@ -111,7 +114,7 @@ export default function MapExplorerPage() {
             }
             map.current.resize();
 
-        }, 1000); 
+        }, 1500); 
     }
   };
 
