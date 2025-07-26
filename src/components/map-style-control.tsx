@@ -12,7 +12,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-export type MapStyle = 'standard' | 'satellite-streets-v12';
+export type MapStyle = 'standard' | 'satellite-streets-v12' | 'streets-v12' | 'dark-v11' | 'light-v11';
 
 interface MapStyleControlProps {
   currentStyle: MapStyle;
@@ -22,21 +22,21 @@ interface MapStyleControlProps {
 
 export function MapStyleControl({ currentStyle, onStyleChange, className }: MapStyleControlProps) {
   return (
-    <div className={cn("bg-white/75 backdrop-blur-sm rounded-lg shadow-md p-1 flex flex-col gap-1", className)}>
+    <div className={cn("bg-card/80 backdrop-blur-sm rounded-lg shadow-md p-1 flex flex-col gap-1", className)}>
         <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button
                         size="icon"
-                        variant={currentStyle === 'standard' ? 'secondary' : 'ghost'}
-                        onClick={() => onStyleChange('standard')}
-                        className="text-black"
+                        variant={currentStyle === 'dark-v11' ? 'secondary' : 'ghost'}
+                        onClick={() => onStyleChange('dark-v11')}
+                        className="text-card-foreground"
                     >
                         <Map className="h-5 w-5" />
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left">
-                    <p>Standard</p>
+                    <p>Dark</p>
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>
@@ -47,7 +47,7 @@ export function MapStyleControl({ currentStyle, onStyleChange, className }: MapS
                         size="icon"
                         variant={currentStyle === 'satellite-streets-v12' ? 'secondary' : 'ghost'}
                         onClick={() => onStyleChange('satellite-streets-v12')}
-                        className="text-black"
+                        className="text-card-foreground"
                     >
                         <Satellite className="h-5 w-5" />
                     </Button>

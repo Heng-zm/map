@@ -116,7 +116,7 @@ export function DirectionsPanel({ map, isOpen, onClose }: DirectionsPanelProps) 
   }
 
   return (
-    <Card className="absolute top-1/2 -translate-y-1/2 left-2.5 z-20 w-80 bg-white/80 backdrop-blur-sm shadow-lg">
+    <Card className="absolute top-1/2 -translate-y-1/2 left-20 z-20 w-80 bg-card/80 backdrop-blur-sm shadow-lg text-card-foreground">
       <CardContent className="p-4">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Get Directions</h2>
@@ -157,7 +157,7 @@ export function DirectionsPanel({ map, isOpen, onClose }: DirectionsPanelProps) 
                     {route.legs[0].steps.map((step: any, index: number) => (
                         <div key={index} className="border-b pb-1">
                             <p>{step.maneuver.instruction}</p>
-                            <p className="text-xs text-gray-600">{(step.distance / 1000).toFixed(2)} km</p>
+                            <p className="text-xs text-muted-foreground">{(step.distance / 1000).toFixed(2)} km</p>
                         </div>
                     ))}
                 </div>

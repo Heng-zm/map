@@ -5,14 +5,15 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { TrafficCone, Ruler, Layers, Navigation } from 'lucide-react';
 import { lineString, polygon, featureCollection, point as turfPoint } from '@turf/helpers';
 import length from '@turf/length';
 import area from '@turf/area';
 import distance from '@turf/distance';
 import { MapStyleControl, type MapStyle } from '@/components/map-style-control';
 import { DirectionsPanel } from '@/components/directions-panel';
-
+import { Header } from '@/components/header';
+import { Sidebar } from '@/components/sidebar';
+import { BottomNav } from '@/components/bottom-nav';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -38,7 +39,7 @@ export default function MapExplorerPage() {
   const [totalDistance, setTotalDistance] = useState(0);
   const [totalArea, setTotalArea] = useState(0);
   const [measurementPoints, setMeasurementPoints] = useState<mapboxgl.LngLat[]>([]);
-  const [mapStyle, setMapStyle] = useState<MapStyle>('standard');
+  const [mapStyle, setMapStyle] = useState<MapStyle>('dark-v11');
   const [showStyleControl, setShowStyleControl] = useState(false);
   const [showDirectionsPanel, setShowDirectionsPanel] = useState(false);
 
@@ -166,7 +167,7 @@ export default function MapExplorerPage() {
   }, [toast, mapStyle]);
 
   useEffect(() => {
-    if (!map.current || mapStyle !== 'standard') return;
+    if (!map.current || (mapStyle !== 'standard' && mapStyle !== 'streets-v12')) return;
     if (showTraffic) {
       map.current.setConfigProperty('basemap', 'showTraffic', true);
     } else {
@@ -271,9 +272,9 @@ export default function MapExplorerPage() {
   }, []);
 
   const toggleTraffic = () => {
-    if (mapStyle !== 'standard') {
+    if (mapStyle !== 'standard' && mapStyle !== 'streets-v12') {
       toast({
-        description: "Traffic is only available on the Standard map style.",
+        description: "Traffic is only available on the Standard or Streets map style.",
       });
       return;
     }
@@ -290,46 +291,19 @@ export default function MapExplorerPage() {
   };
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-background font-sans">
+    <div className="relative h-screen w-screen overflow-hidden bg-background font-sans dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-      <div className="absolute top-24 left-2.5 z-10 flex flex-col gap-2">
-        <Button
-            size="icon"
-            onClick={toggleTraffic}
-            variant={showTraffic ? 'secondary': 'outline'}
-            className="bg-white/75 text-black backdrop-blur-sm transition-all hover:bg-white"
-            aria-label="Toggle traffic"
-        >
-            <TrafficCone className="h-5 w-5" />
-        </Button>
-        <Button
-          size="icon"
-          onClick={toggleMeasurement}
-          variant={isMeasuring ? 'secondary' : 'outline'}
-          className="bg-white/75 text-black backdrop-blur-sm transition-all hover:bg-white"
-          aria-label="Measure distance"
-        >
-          <Ruler className="h-5 w-5" />
-        </Button>
-         <Button
-          size="icon"
-          onClick={() => setShowStyleControl(prev => !prev)}
-          variant={showStyleControl ? 'secondary' : 'outline'}
-          className="bg-white/75 text-black backdrop-blur-sm transition-all hover:bg-white"
-          aria-label="Toggle map styles"
-        >
-          <Layers className="h-5 w-5" />
-        </Button>
-        <Button
-          size="icon"
-          onClick={() => setShowDirectionsPanel(prev => !prev)}
-          variant={showDirectionsPanel ? 'secondary' : 'outline'}
-          className="bg-white/75 text-black backdrop-blur-sm transition-all hover:bg-white"
-          aria-label="Get directions"
-        >
-          <Navigation className="h-5 w-5" />
-        </Button>
-      </div>
+      <Header />
+      <Sidebar 
+        onToggleTraffic={toggleTraffic}
+        onToggleMeasurement={toggleMeasurement}
+        onToggleDirections={() => setShowDirectionsPanel(prev => !prev)}
+        showTraffic={showTraffic}
+        isMeasuring={isMeasuring}
+        showDirections={showDirectionsPanel}
+      />
+      <BottomNav />
+      
 
        {showStyleControl && (
         <MapStyleControl 
@@ -346,7 +320,7 @@ export default function MapExplorerPage() {
        />
 
        {isMeasuring && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-white/75 backdrop-blur-sm p-3 rounded-lg shadow-md flex items-center gap-4">
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 bg-card/80 backdrop-blur-sm p-3 rounded-lg shadow-md flex items-center gap-4 text-card-foreground">
             <div className="flex flex-col text-sm font-semibold">
               <p>
                   Total Distance: {totalDistance.toFixed(2)} km
@@ -357,7 +331,7 @@ export default function MapExplorerPage() {
                 </p>
               )}
                {measurementPoints.length > 1 && totalArea === 0 && (
-                <p className="text-xs text-gray-500 font-normal">Click first point to close shape & calculate area.</p>
+                <p className="text-xs text-muted-foreground font-normal">Click first point to close shape & calculate area.</p>
               )}
             </div>
              <Button
