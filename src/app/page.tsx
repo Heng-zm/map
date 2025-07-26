@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import { getWeather } from '@/ai/flows/weather-flow';
-import { Thermometer, Wind, Cloud, Maximize, Minimize } from 'lucide-react';
+import { Thermometer, Wind, Cloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -32,7 +32,6 @@ export default function MapExplorerPage() {
   const { toast } = useToast();
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
 
   useEffect(() => {
@@ -95,51 +94,16 @@ export default function MapExplorerPage() {
       }
     });
 
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-
-
     return () => {
         map.current?.remove();
         map.current = null;
-        document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }
   }, [toast]);
   
-  const toggleFullscreen = () => {
-    const docEl = document.documentElement as any;
-    if (!document.fullscreenElement) {
-        if (docEl.requestFullscreen) {
-            docEl.requestFullscreen();
-        } else if (docEl.mozRequestFullScreen) { /* Firefox */
-            docEl.mozRequestFullScreen();
-        } else if (docEl.webkitRequestFullscreen) { /* Chrome, Safari & Opera */
-            docEl.webkitRequestFullscreen();
-        } else if (docEl.msRequestFullscreen) { /* IE/Edge */
-            docEl.msRequestFullscreen();
-        }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
-    }
-  };
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-background font-sans dark">
+    <div className="relative h-full w-full overflow-hidden bg-background font-sans dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-4 right-4 z-10 bg-black/50 text-white hover:bg-black/70 hover:text-white"
-        onClick={toggleFullscreen}
-      >
-        {isFullscreen ? <Minimize /> : <Maximize />}
-        <span className="sr-only">Toggle Fullscreen</span>
-      </Button>
       <div className={cn(
           "absolute top-0 w-full bg-black/70 p-4 text-white backdrop-blur-md transition-all duration-500 ease-in-out",
           (loadingWeather || weather) ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
