@@ -25,6 +25,27 @@ export default function MapExplorerPage() {
   const [isRotating, setIsRotating] = useState(false);
   const animationFrameId = useRef<number | null>(null);
 
+  const startRotation = () => {
+    if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+    }
+    const rotate = (timestamp: number) => {
+        if (!map.current) return;
+        map.current.rotateTo((timestamp / 100) % 360, { duration: 0 });
+        animationFrameId.current = requestAnimationFrame(rotate);
+    }
+    animationFrameId.current = requestAnimationFrame(rotate);
+    setIsRotating(true);
+  }
+
+  const stopRotation = () => {
+    if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+    }
+    setIsRotating(false);
+  }
+
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     if (!mapboxgl.accessToken) {
@@ -84,25 +105,14 @@ export default function MapExplorerPage() {
     }
   }, [toast]);
   
-  const rotateCamera = (timestamp: number) => {
-      if (!map.current) return;
-      //-360 to reverse direction
-      map.current.rotateTo((timestamp / 100) % 360, { duration: 0 });
-      animationFrameId.current = requestAnimationFrame(rotateCamera);
-  }
 
   const handleToggleRotation = () => {
     if (isRotating) {
-        if (animationFrameId.current) {
-            cancelAnimationFrame(animationFrameId.current);
-            animationFrameId.current = null;
-        }
+        stopRotation();
     } else {
-        animationFrameId.current = requestAnimationFrame(rotateCamera);
+        startRotation();
     }
-    setIsRotating(!isRotating);
   };
-  
 
   const handleDownloadMap = () => {
     if (!map.current || !mapContainer.current) return;
@@ -138,6 +148,7 @@ export default function MapExplorerPage() {
       mapInstance.resize();
     });
   };
+
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
