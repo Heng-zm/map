@@ -2,10 +2,12 @@
 'use client';
 import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download, RotateCw, Layers } from 'lucide-react';
+import { Download, RotateCw, Layers, PenTool } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,10 +34,12 @@ const mapStyles = [
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const draw = useRef<MapboxDraw | null>(null);
   const { toast } = useToast();
   const [isRotating, setIsRotating] = useState(false);
   const animationFrameId = useRef<number | null>(null);
   const [currentStyleIndex, setCurrentStyleIndex] = useState(0);
+  const [isDrawing, setIsDrawing] = useState(false);
 
   const startRotation = () => {
     if (animationFrameId.current) {
@@ -93,6 +97,17 @@ export default function MapExplorerPage() {
       preserveDrawingBuffer: true,
     });
     
+    draw.current = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: {
+        polygon: true,
+        trash: true,
+        line_string: true,
+        point: true,
+      },
+    });
+    map.current.addControl(draw.current, 'top-left');
+
     map.current.on('style.load', () => {
       setMapTerrain();
     });
@@ -112,7 +127,7 @@ export default function MapExplorerPage() {
           }
         );
       }
-    })
+    });
 
     return () => {
         if (animationFrameId.current) {
@@ -160,7 +175,7 @@ export default function MapExplorerPage() {
       document.body.removeChild(link);
 
       container.style.width = `${originalWidth}px`;
-      container.style.height = `${originalHeight}px`;
+      container.style.height = `${newHeight}px`;
       mapInstance.resize();
     });
   };
@@ -175,6 +190,18 @@ export default function MapExplorerPage() {
     });
   }
 
+  const handleToggleDrawing = () => {
+    if (!draw.current) return;
+
+    const newIsDrawing = !isDrawing;
+    setIsDrawing(newIsDrawing);
+
+    if (newIsDrawing) {
+      draw.current.changeMode('draw_polygon');
+    } else {
+      draw.current.changeMode('simple_select');
+    }
+  };
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
@@ -199,6 +226,9 @@ export default function MapExplorerPage() {
         </Button>
         <Button onClick={handleDownloadMap} size="icon">
           <Download />
+        </Button>
+        <Button onClick={handleToggleDrawing} size="icon" variant={isDrawing ? 'secondary' : 'default'}>
+          <PenTool />
         </Button>
       </div>
     </div>
