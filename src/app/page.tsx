@@ -4,6 +4,8 @@ import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -27,7 +29,7 @@ export default function MapExplorerPage() {
         toast({
             variant: "destructive",
             title: "โทខេน Mapbox មិនត្រូវបានកំណត់ទេ",
-            description: "សូមផ្ដល់โทខេន Mapbox នៅក្នុងអថេរបរិស្ថានរបស់អ្នក។",
+            description: "សូមផ្ដល់โทខេน Mapbox នៅក្នុងអថេរបរិស្ថានរបស់អ្នក។",
         });
         return;
     }
@@ -37,6 +39,7 @@ export default function MapExplorerPage() {
       style: 'mapbox://styles/mapbox/outdoors-v12',
       center: initialCenter,
       zoom: initialZoom,
+      preserveDrawingBuffer: true,
     });
     
     map.current.on('style.load', () => {
@@ -75,9 +78,26 @@ export default function MapExplorerPage() {
     }
   }, [toast]);
 
+  const handleDownloadMap = () => {
+    if (map.current) {
+      const dataURL = map.current.getCanvas().toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = 'map.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
+      <div className="absolute top-4 right-4">
+        <Button onClick={handleDownloadMap} size="icon">
+          <Download />
+        </Button>
+      </div>
     </div>
   );
 }
