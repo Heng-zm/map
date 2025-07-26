@@ -122,8 +122,8 @@ export default function MapExplorerPage() {
           "absolute top-0 w-full bg-black/70 p-4 text-white backdrop-blur-md transition-all duration-500 ease-in-out rounded-b-lg",
           (loadingWeather || weather) ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
       )}>
-          <h1 className="text-xl font-bold">Weather</h1>
-          {loadingWeather && <p className="mt-2">Loading weather...</p>}
+          <h1 className="text-xl font-bold">អាកាសធាតុ</h1>
+          {loadingWeather && <p className="mt-2">កំពុងផ្ទុកទិន្នន័យអាកាសធាតុ...</p>}
           {weather && (
           <div className="mt-2">
               <p className="text-lg font-semibold">{weather.location}</p>
@@ -142,7 +142,7 @@ export default function MapExplorerPage() {
           </div>
           )}
           {!loadingWeather && !weather && (
-            <p className="mt-2">Click on the map to see the weather</p>
+            <p className="mt-2">ចុចលើផែនទីដើម្បីមើលអាកាសធាតុ</p>
           )}
       </div>
     </div>
