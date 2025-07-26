@@ -8,7 +8,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download, RotateCw, PenTool, Search, Compass } from 'lucide-react';
+import { Download, RotateCw, PenTool, Search, Compass, Layers } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   SidebarProvider,
@@ -23,14 +23,14 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -56,7 +56,7 @@ export default function MapExplorerPage() {
   const { toast } = useToast();
   const [isRotating, setIsRotating] = useState(false);
   const animationFrameId = useRef<number | null>(null);
-  const [currentStyleIndex, setCurrentStyleIndex] = useState(0);
+  const [currentStyle, setCurrentStyle] = useState(mapStyles[0].style);
   const [isDrawing, setIsDrawing] = useState(false);
   const measurementPopup = useRef<mapboxgl.Popup | null>(null);
   const searchMarker = useRef<mapboxgl.Marker | null>(null);
@@ -145,7 +145,7 @@ export default function MapExplorerPage() {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: mapStyles[currentStyleIndex].style,
+      style: currentStyle,
       center: initialCenter,
       zoom: initialZoom,
       pitch: 60,
@@ -162,8 +162,6 @@ export default function MapExplorerPage() {
         point: true,
       },
       styles: [
-        // default styles provided by mapbox-gl-draw
-        // ACTIVE (being drawn)
         {
           "id": "gl-draw-polygon-fill-active",
           "type": "fill",
@@ -219,8 +217,6 @@ export default function MapExplorerPage() {
             "circle-color": "#FFF"
           }
         },
-
-        // INACTIVE (already drawn)
         {
             "id": "gl-draw-polygon-fill-inactive",
             "type": "fill",
@@ -260,9 +256,6 @@ export default function MapExplorerPage() {
       ]
     });
     
-    // We don't add the control to the map directly. We'll manage its UI through our sidebar.
-    // map.current.addControl(draw.current, 'top-left');
-
     map.current.on('style.load', () => {
       setMapTerrain();
     });
@@ -302,7 +295,7 @@ export default function MapExplorerPage() {
         map.current?.remove();
         map.current = null;
     }
-  }, [toast, currentStyleIndex]);
+  }, [toast, currentStyle]);
 
   const handleToggleRotation = () => {
     if (isRotating) {
@@ -319,7 +312,6 @@ export default function MapExplorerPage() {
     const mapInstance = map.current;
     const container = mapContainer.current;
   
-    // Wait for map to be idle before resizing to ensure all tiles are loaded at current resolution
     mapInstance.once('idle', () => {
       const originalWidth = container.clientWidth;
       const originalHeight = container.clientHeight;
@@ -337,7 +329,6 @@ export default function MapExplorerPage() {
       container.style.height = `${newHeight}px`;
       mapInstance.resize();
   
-      // Wait for map to be idle again after resizing to ensure high-res tiles are loaded
       mapInstance.once('idle', () => {
         const dataURL = mapInstance.getCanvas().toDataURL('image/png');
         const link = document.createElement('a');
@@ -347,7 +338,6 @@ export default function MapExplorerPage() {
         link.click();
         document.body.removeChild(link);
   
-        // Restore original size
         container.style.width = `${originalWidth}px`;
         container.style.height = `${originalHeight}px`;
         mapInstance.resize();
@@ -357,14 +347,13 @@ export default function MapExplorerPage() {
   
   const handleSwitchStyle = (style: string) => {
     if(!map.current) return;
-    const styleIndex = mapStyles.findIndex(s => s.style === style);
-    if(styleIndex === -1) return;
     
-    setCurrentStyleIndex(styleIndex);
-    map.current.setStyle(mapStyles[styleIndex].style);
+    setCurrentStyle(style);
+    map.current.setStyle(style);
+    const styleName = mapStyles.find(s => s.style === style)?.name;
     toast({
         title: "Map style changed",
-        description: `Switched to ${mapStyles[styleIndex].name}`,
+        description: `Switched to ${styleName}`,
     });
   }
 
@@ -373,8 +362,6 @@ export default function MapExplorerPage() {
 
     const newIsDrawing = !isDrawing;
     setIsDrawing(newIsDrawing);
-
-    const currentMode = draw.current.getMode();
     
     if (newIsDrawing) {
       if(map.current && !map.current.hasControl(draw.current)){
@@ -434,14 +421,14 @@ export default function MapExplorerPage() {
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center gap-3 p-2">
-              <Compass size={20} />
-              <h1 className="text-lg font-semibold">Map Explorer</h1>
+              <Compass size={24} />
+              <h1 className="text-xl font-semibold">Map Explorer</h1>
             </div>
           </SidebarHeader>
           <SidebarContent>
             <SidebarGroup>
               <SidebarGroupLabel className="font-semibold">Search</SidebarGroupLabel>
-              <div className="flex gap-2">
+              <div className="flex gap-2 p-2">
                 <Input
                   type="text"
                   placeholder="Find a location..."
@@ -456,19 +443,24 @@ export default function MapExplorerPage() {
             </SidebarGroup>
             
             <SidebarGroup>
-              <SidebarGroupLabel className="font-semibold">Map Styles</SidebarGroupLabel>
-              <Select onValueChange={handleSwitchStyle} defaultValue={mapStyles[currentStyleIndex].style}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a map style" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mapStyles.map((style) => (
-                    <SelectItem key={style.name} value={style.style}>
-                      {style.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SidebarGroupLabel className="font-semibold">Map Style</SidebarGroupLabel>
+              <div className="p-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      <span>{mapStyles.find(s => s.style === currentStyle)?.name}</span>
+                      <Layers className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56">
+                    {mapStyles.map((style) => (
+                      <DropdownMenuItem key={style.name} onSelect={() => handleSwitchStyle(style.style)}>
+                        {style.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </SidebarGroup>
 
             <SidebarGroup>
@@ -497,6 +489,7 @@ export default function MapExplorerPage() {
                 </SidebarMenu>
             </SidebarGroup>
           </SidebarContent>
+          <SidebarSeparator />
           <SidebarFooter>
             <Button onClick={handleDownloadMap} className="w-full">
               <Download />
