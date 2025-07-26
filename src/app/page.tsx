@@ -80,13 +80,38 @@ export default function MapExplorerPage() {
 
   const handleDownloadMap = () => {
     if (map.current) {
-      const dataURL = map.current.getCanvas().toDataURL('image/png');
-      const link = document.createElement('a');
-      link.href = dataURL;
-      link.download = 'map.png';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+        const mapCanvas = map.current.getCanvas();
+        const originalWidth = mapCanvas.width;
+        const originalHeight = mapCanvas.height;
+        const scale = 2; // Increase for higher resolution
+
+        if (mapContainer.current) {
+            mapContainer.current.style.width = `${originalWidth * scale}px`;
+            mapContainer.current.style.height = `${originalHeight * scale}px`;
+        }
+
+        map.current.resize();
+
+        // Give the map time to render the high-res tiles
+        setTimeout(() => {
+            if(!map.current) return;
+
+            const dataURL = map.current.getCanvas().toDataURL('image/png');
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = 'map-high-quality.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Restore original size
+            if (mapContainer.current) {
+                mapContainer.current.style.width = `${originalWidth}px`;
+                mapContainer.current.style.height = `${originalHeight}px`;
+            }
+            map.current.resize();
+
+        }, 1000); 
     }
   };
 
