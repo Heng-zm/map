@@ -17,3 +17,14 @@ export const WeatherOutputSchema = z.object({
   location: z.string().describe('The name of the location.'),
 });
 export type WeatherOutput = z.infer<typeof WeatherOutputSchema>;
+
+export const TranslateInputSchema = z.object({
+  text: z.string().describe('The text to translate.'),
+  language: z.string().describe('The target language for translation.'),
+});
+export type TranslateInput = z.infer<typeof TranslateInputSchema>;
+
+export const TranslateOutputSchema = z.object({
+  translatedText: z.string().describe('The translated text.'),
+});
+export type TranslateOutput = z.infer<typeof TranslateOutputSchema>;

@@ -5,6 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import { getWeather } from '@/ai/flows/weather-flow';
+import { translateText } from '@/ai/flows/translate-flow';
 import { Thermometer, Wind, Cloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ export default function MapExplorerPage() {
   const marker = useRef<mapboxgl.Marker | null>(null);
   const { toast } = useToast();
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [translatedCondition, setTranslatedCondition] = useState<string | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
 
 
@@ -79,6 +81,7 @@ export default function MapExplorerPage() {
 
       setLoadingWeather(true);
       setWeather(null);
+      setTranslatedCondition(null);
       
       const { lat, lng } = e.lngLat;
 
@@ -96,6 +99,10 @@ export default function MapExplorerPage() {
       try {
         const weatherData = await getWeather({ latitude: lat, longitude: lng });
         setWeather(weatherData);
+
+        const translation = await translateText({ text: weatherData.condition, language: 'Khmer' });
+        setTranslatedCondition(translation.translatedText);
+        
       } catch (error) {
         console.error("Failed to fetch weather data", error);
         toast({
@@ -133,7 +140,7 @@ export default function MapExplorerPage() {
               </div>
               <div className="flex items-center gap-2 mt-1">
                   <Cloud className="h-5 w-5" />
-                  <span>{weather.condition}</span>
+                  <span>{translatedCondition || weather.condition}</span>
               </div>
               <div className="flex items-center gap-2 mt-1">
                   <Wind className="h-5 w-5" />
