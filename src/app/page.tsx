@@ -5,12 +5,13 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { TrafficCone, Ruler, Layers } from 'lucide-react';
+import { TrafficCone, Ruler, Layers, Navigation } from 'lucide-react';
 import { lineString, polygon, featureCollection, point as turfPoint } from '@turf/helpers';
 import length from '@turf/length';
 import area from '@turf/area';
 import distance from '@turf/distance';
 import { MapStyleControl, type MapStyle } from '@/components/map-style-control';
+import { DirectionsPanel } from '@/components/directions-panel';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -39,6 +40,7 @@ export default function MapExplorerPage() {
   const [measurementPoints, setMeasurementPoints] = useState<mapboxgl.LngLat[]>([]);
   const [mapStyle, setMapStyle] = useState<MapStyle>('standard');
   const [showStyleControl, setShowStyleControl] = useState(false);
+  const [showDirectionsPanel, setShowDirectionsPanel] = useState(false);
 
   const setStyle = useCallback((style: MapStyle) => {
     if (!map.current) return;
@@ -138,6 +140,21 @@ export default function MapExplorerPage() {
             'text-halo-width': 1
             },
             filter: ['has', 'label']
+        });
+      }
+       if (map.current && !map.current.getSource('directions')) {
+        map.current.addSource('directions', {
+          type: 'geojson',
+          data: emptyGeoJSON,
+        });
+        map.current.addLayer({
+          id: 'directions-route',
+          type: 'line',
+          source: 'directions',
+          paint: {
+            'line-width': 4,
+            'line-color': '#0070f3',
+          },
         });
       }
     });
@@ -303,6 +320,15 @@ export default function MapExplorerPage() {
         >
           <Layers className="h-5 w-5" />
         </Button>
+        <Button
+          size="icon"
+          onClick={() => setShowDirectionsPanel(prev => !prev)}
+          variant={showDirectionsPanel ? 'secondary' : 'outline'}
+          className="bg-white/75 text-black backdrop-blur-sm transition-all hover:bg-white"
+          aria-label="Get directions"
+        >
+          <Navigation className="h-5 w-5" />
+        </Button>
       </div>
 
        {showStyleControl && (
@@ -312,6 +338,12 @@ export default function MapExplorerPage() {
           className="absolute top-24 right-2.5 z-10"
         />
        )}
+       
+       <DirectionsPanel 
+         map={map.current}
+         isOpen={showDirectionsPanel}
+         onClose={() => setShowDirectionsPanel(false)}
+       />
 
        {isMeasuring && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-white/75 backdrop-blur-sm p-3 rounded-lg shadow-md flex items-center gap-4">
