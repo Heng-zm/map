@@ -8,7 +8,8 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download, RotateCw, Layers, PenTool } from 'lucide-react';
+import { Download, RotateCw, Layers, PenTool, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +43,8 @@ export default function MapExplorerPage() {
   const [currentStyleIndex, setCurrentStyleIndex] = useState(0);
   const [isDrawing, setIsDrawing] = useState(false);
   const measurementPopup = useRef<mapboxgl.Popup | null>(null);
+  const searchMarker = useRef<mapboxgl.Marker | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const startRotation = () => {
     if (animationFrameId.current) {
@@ -258,9 +261,59 @@ export default function MapExplorerPage() {
     }
   };
 
+  const handleSearch = async () => {
+    if (!searchQuery || !map.current) return;
+    const geocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+      searchQuery
+    )}.json?access_token=${mapboxgl.accessToken}`;
+
+    try {
+      const response = await fetch(geocodingUrl);
+      const data = await response.json();
+      if (data.features && data.features.length > 0) {
+        const [longitude, latitude] = data.features[0].center;
+        map.current.flyTo({ center: [longitude, latitude], zoom: 14 });
+
+        if (searchMarker.current) {
+          searchMarker.current.remove();
+        }
+        searchMarker.current = new mapboxgl.Marker()
+          .setLngLat([longitude, latitude])
+          .addTo(map.current);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Location not found',
+          description: 'Please try a different search term.',
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Geocoding error',
+        description: 'Could not fetch location data.',
+      });
+    }
+  };
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
+      <div className="absolute top-4 left-4 flex flex-col gap-2">
+        <div className="flex gap-2">
+          <Input
+            type="text"
+            placeholder="Search for a location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            className="w-64 bg-white/80 backdrop-blur-sm"
+          />
+          <Button onClick={handleSearch} size="icon">
+            <Search />
+          </Button>
+        </div>
+      </div>
       <div className="absolute top-4 right-4 flex gap-2">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -289,5 +342,3 @@ export default function MapExplorerPage() {
     </div>
   );
 }
-
-    
