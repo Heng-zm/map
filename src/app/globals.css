@@ -13,12 +13,8 @@ body {
 }
 
 .custom-marker {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background-color: #007cff;
-  border: 3px solid white;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  width: 32px;
+  height: 32px;
 }
 
 @layer base {
