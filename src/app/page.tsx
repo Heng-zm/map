@@ -116,7 +116,7 @@ export default function MapExplorerPage() {
   
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-background font-sans dark">
+    <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
       <div className={cn(
           "absolute top-0 w-full bg-black/70 p-4 text-white backdrop-blur-md transition-all duration-500 ease-in-out rounded-b-lg",
