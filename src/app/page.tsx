@@ -319,34 +319,39 @@ export default function MapExplorerPage() {
     const mapInstance = map.current;
     const container = mapContainer.current;
   
-    const originalWidth = container.clientWidth;
-    const originalHeight = container.clientHeight;
-  
-    const targetResolution = 3000;
-    
-    const scale = originalWidth > originalHeight 
-      ? targetResolution / originalWidth
-      : targetResolution / originalHeight;
-  
-    const newWidth = originalWidth * scale;
-    const newHeight = originalHeight * scale;
-  
-    container.style.width = `${newWidth}px`;
-    container.style.height = `${newHeight}px`;
-    mapInstance.resize();
-  
+    // Wait for map to be idle before resizing to ensure all tiles are loaded at current resolution
     mapInstance.once('idle', () => {
-      const dataURL = mapInstance.getCanvas().toDataURL('image/png');
-      const link = document.createElement('a');
-      link.href = dataURL;
-      link.download = 'map-high-quality.png';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const originalWidth = container.clientWidth;
+      const originalHeight = container.clientHeight;
   
-      container.style.width = `${originalWidth}px`;
-      container.style.height = `${originalHeight}px`;
+      const targetResolution = 3000;
+      
+      const scale = originalWidth > originalHeight 
+        ? targetResolution / originalWidth
+        : targetResolution / originalHeight;
+  
+      const newWidth = originalWidth * scale;
+      const newHeight = originalHeight * scale;
+  
+      container.style.width = `${newWidth}px`;
+      container.style.height = `${newHeight}px`;
       mapInstance.resize();
+  
+      // Wait for map to be idle again after resizing to ensure high-res tiles are loaded
+      mapInstance.once('idle', () => {
+        const dataURL = mapInstance.getCanvas().toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = dataURL;
+        link.download = 'map-high-quality.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+  
+        // Restore original size
+        container.style.width = `${originalWidth}px`;
+        container.style.height = `${originalHeight}px`;
+        mapInstance.resize();
+      });
     });
   };
   
@@ -428,14 +433,14 @@ export default function MapExplorerPage() {
       <SidebarProvider>
         <Sidebar>
           <SidebarHeader>
-            <div className="flex items-center gap-2">
-              <Compass />
+            <div className="flex items-center gap-3 p-2">
+              <Compass size={20} />
               <h1 className="text-lg font-semibold">Map Explorer</h1>
             </div>
           </SidebarHeader>
           <SidebarContent>
             <SidebarGroup>
-              <SidebarGroupLabel>Search</SidebarGroupLabel>
+              <SidebarGroupLabel className="font-semibold">Search</SidebarGroupLabel>
               <div className="flex gap-2">
                 <Input
                   type="text"
@@ -451,7 +456,7 @@ export default function MapExplorerPage() {
             </SidebarGroup>
             
             <SidebarGroup>
-              <SidebarGroupLabel>Map Styles</SidebarGroupLabel>
+              <SidebarGroupLabel className="font-semibold">Map Styles</SidebarGroupLabel>
               <Select onValueChange={handleSwitchStyle} defaultValue={mapStyles[currentStyleIndex].style}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a map style" />
@@ -467,7 +472,7 @@ export default function MapExplorerPage() {
             </SidebarGroup>
 
             <SidebarGroup>
-              <SidebarGroupLabel>Tools</SidebarGroupLabel>
+              <SidebarGroupLabel className="font-semibold">Tools</SidebarGroupLabel>
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton 
@@ -509,5 +514,3 @@ export default function MapExplorerPage() {
     </div>
   );
 }
-
-    

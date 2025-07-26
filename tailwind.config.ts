@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['"Kantumruy Pro"', 'sans-serif'],
-        headline: ['"Kantumruy Pro"', 'sans-serif'],
+        body: ['Inter', 'sans-serif'],
+        headline: ['Inter', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
