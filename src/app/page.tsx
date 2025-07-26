@@ -44,7 +44,7 @@ export default function MapExplorerPage() {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
+      style: 'mapbox://styles/mapbox/satellite-v9',
       center: initialCenter,
       zoom: initialZoom,
     });
@@ -101,7 +101,7 @@ export default function MapExplorerPage() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-md bg-black/50 p-4 text-white backdrop-blur-sm rounded-lg">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-md bg-black/70 p-4 text-white backdrop-blur-md rounded-lg shadow-lg">
         <h1 className="text-xl font-bold">Weather</h1>
         {loadingWeather && <p className="mt-2">Loading weather...</p>}
         {weather ? (
@@ -121,7 +121,7 @@ export default function MapExplorerPage() {
             </div>
           </div>
         ) : !loadingWeather && (
-           <p className="mt-2 text-gray-400">Click on the map to see the weather</p>
+           <p className="mt-2 text-gray-300">Click on the map to see the weather</p>
         )}
       </div>
     </div>
