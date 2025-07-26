@@ -68,8 +68,6 @@ export default function MapExplorerPage() {
       pitch: 45,
     });
     
-    map.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-left');
-    
     map.current.on('style.load', () => {
       if(map.current) {
         if (!map.current.getSource('mapbox-dem')) {
