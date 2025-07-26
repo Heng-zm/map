@@ -37,6 +37,52 @@ export default function MapExplorerPage() {
   const [loadingWeather, setLoadingWeather] = useState(false);
 
 
+  const fetchWeatherForLocation = async (lat: number, lng: number) => {
+    if (!process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY) {
+      toast({
+        variant: "destructive",
+        title: "OpenWeather API Key Missing",
+        description: "Please add your OpenWeatherMap API key to the .env file.",
+      });
+      return;
+    }
+
+    setLoadingWeather(true);
+    setWeather(null);
+    setTranslatedCondition(null);
+    
+    if (marker.current) {
+      marker.current.setLngLat([lng, lat]);
+    } else {
+      const el = document.createElement('div');
+      el.className = 'custom-marker';
+      el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000"/><path d="M12 9.5m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0" stroke="white" stroke-width="1.5"/></svg>`;
+      if (map.current) {
+        marker.current = new mapboxgl.Marker(el)
+          .setLngLat([lng, lat])
+          .addTo(map.current!);
+      }
+    }
+
+    try {
+      const weatherData = await getWeather({ latitude: lat, longitude: lng });
+      setWeather(weatherData);
+
+      const translation = await translateText({ text: weatherData.condition, language: 'Khmer' });
+      setTranslatedCondition(translation.translatedText);
+      
+    } catch (error) {
+      console.error("Failed to fetch weather data", error);
+      toast({
+        variant: "destructive",
+        title: "Could not fetch weather",
+        description: "An error occurred while fetching weather data.",
+      });
+    } finally {
+      setLoadingWeather(false);
+    }
+  }
+
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     if (!mapboxgl.accessToken) {
@@ -67,52 +113,28 @@ export default function MapExplorerPage() {
           });
       }
       map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+
+      // Request user's location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            map.current?.setCenter([longitude, latitude]);
+            fetchWeatherForLocation(latitude, longitude);
+          },
+          () => {
+            toast({
+              title: "Location Access Denied",
+              description: "Showing default location. Click on the map to see weather elsewhere.",
+            });
+          }
+        );
+      }
     });
 
     map.current.on('click', async (e) => {
-      if (!process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY) {
-        toast({
-          variant: "destructive",
-          title: "OpenWeather API Key Missing",
-          description: "Please add your OpenWeatherMap API key to the .env file.",
-        });
-        return;
-      }
-
-      setLoadingWeather(true);
-      setWeather(null);
-      setTranslatedCondition(null);
-      
       const { lat, lng } = e.lngLat;
-
-      if (marker.current) {
-        marker.current.setLngLat([lng, lat]);
-      } else {
-        const el = document.createElement('div');
-        el.className = 'custom-marker';
-        el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#FF0000"/><path d="M12 9.5m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0" stroke="white" stroke-width="1.5"/></svg>`;
-        marker.current = new mapboxgl.Marker(el)
-          .setLngLat([lng, lat])
-          .addTo(map.current!);
-      }
-
-      try {
-        const weatherData = await getWeather({ latitude: lat, longitude: lng });
-        setWeather(weatherData);
-
-        const translation = await translateText({ text: weatherData.condition, language: 'Khmer' });
-        setTranslatedCondition(translation.translatedText);
-        
-      } catch (error) {
-        console.error("Failed to fetch weather data", error);
-        toast({
-          variant: "destructive",
-          title: "Could not fetch weather",
-          description: "An error occurred while fetching weather data.",
-        });
-      } finally {
-        setLoadingWeather(false);
-      }
+      fetchWeatherForLocation(lat, lng);
     });
 
     return () => {
