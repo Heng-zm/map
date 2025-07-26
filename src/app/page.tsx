@@ -8,7 +8,10 @@ import { getWeather } from '@/ai/flows/weather-flow';
 import { translateText } from '@/ai/flows/translate-flow';
 import { Thermometer, Wind, Cloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+} from "@/components/ui/sheet"
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -35,6 +38,7 @@ export default function MapExplorerPage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [translatedCondition, setTranslatedCondition] = useState<string | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
 
   const fetchWeatherForLocation = async (lat: number, lng: number) => {
@@ -48,6 +52,7 @@ export default function MapExplorerPage() {
     }
 
     setLoadingWeather(true);
+    setIsSheetOpen(true);
     setWeather(null);
     setTranslatedCondition(null);
     
@@ -78,6 +83,7 @@ export default function MapExplorerPage() {
         title: "Could not fetch weather",
         description: "An error occurred while fetching weather data.",
       });
+      setIsSheetOpen(false);
     } finally {
       setLoadingWeather(false);
     }
@@ -147,38 +153,46 @@ export default function MapExplorerPage() {
         map.current = null;
     }
   }, [toast]);
+
+  const handleSheetOpenChange = (open: boolean) => {
+    setIsSheetOpen(open);
+    if (!open) {
+        setWeather(null);
+    }
+  }
   
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-      <div className={cn(
-          "absolute top-0 w-full bg-black/70 p-4 text-white backdrop-blur-md transition-all duration-500 ease-in-out rounded-b-lg",
-          (loadingWeather || weather) ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
-      )}>
-          <h1 className="text-xl font-bold">អាកាសធាតុ</h1>
-          {loadingWeather && <p className="mt-2">កំពុងផ្ទុកទិន្នន័យអាកាសធាតុ...</p>}
-          {weather && (
-          <div className="mt-2">
-              <p className="text-lg font-semibold">{weather.location}</p>
-              <div className="flex items-center gap-2 mt-2">
-              <Thermometer className="h-5 w-5" />
-              <span>{weather.temperature.toFixed(1)}°C</span>
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                  <Cloud className="h-5 w-5" />
-                  <span>{translatedCondition || weather.condition}</span>
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                  <Wind className="h-5 w-5" />
-                  <span>{weather.windSpeed.toFixed(1)} m/s</span>
-              </div>
-          </div>
-          )}
-          {!loadingWeather && !weather && (
-            <p className="mt-2">ចុចលើផែនទីដើម្បីមើលអាកាសធាតុ</p>
-          )}
-      </div>
+      <Sheet open={isSheetOpen} onOpenChange={handleSheetOpenChange}>
+        <SheetContent side="top" className="bg-black/70 text-white backdrop-blur-md border-none" overlayClassName="bg-transparent">
+            <h1 className="text-xl font-bold text-center">អាកាសធាតុ</h1>
+            {loadingWeather && <p className="mt-4 text-center">កំពុងផ្ទុកទិន្នន័យអាកាសធាតុ...</p>}
+            {weather && (
+            <div className="mt-4 flex flex-col items-center">
+                <p className="text-lg font-semibold">{weather.location}</p>
+                <div className="flex items-center gap-2 mt-2">
+                <Thermometer className="h-5 w-5" />
+                <span>{weather.temperature.toFixed(1)}°C</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                    <Cloud className="h-5 w-5" />
+                    <span>{translatedCondition || weather.condition}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                    <Wind className="h-5 w-5" />
+                    <span>{weather.windSpeed.toFixed(1)} m/s</span>
+                </div>
+            </div>
+            )}
+            {!loadingWeather && !weather && (
+              <p className="mt-4 text-center">ចុចលើផែនទីដើម្បីមើលអាកាសធាតុ</p>
+            )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
+
+    
