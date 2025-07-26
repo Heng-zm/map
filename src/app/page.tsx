@@ -49,6 +49,8 @@ const mapStyles = [
   { name: 'Satellite', style: 'mapbox://styles/mapbox/satellite-streets-v12' },
 ];
 
+const LOCATION_PERMISSION_KEY = 'location_permission_status';
+
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -261,20 +263,35 @@ export default function MapExplorerPage() {
     });
 
     map.current.on('load', () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            map.current?.setCenter([longitude, latitude]);
-          },
-          () => {
-            toast({
-              title: "Location access denied",
-              description: "Showing default location.",
-            });
-          }
-        );
+      const locationPermission = localStorage.getItem(LOCATION_PERMISSION_KEY);
+
+      if (locationPermission === 'granted') {
+          navigator.geolocation.getCurrentPosition((position) => {
+              const { latitude, longitude } = position.coords;
+              map.current?.setCenter([longitude, latitude]);
+          });
+      } else if (locationPermission !== 'denied' && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+              (position) => {
+                  localStorage.setItem(LOCATION_PERMISSION_KEY, 'granted');
+                  const { latitude, longitude } = position.coords;
+                  map.current?.setCenter([longitude, latitude]);
+              },
+              () => {
+                  localStorage.setItem(LOCATION_PERMISSION_KEY, 'denied');
+                  toast({
+                      title: "Location access denied",
+                      description: "Showing default location. You can grant access in your browser settings.",
+                  });
+              }
+          );
+      } else if (locationPermission === 'denied') {
+          toast({
+              title: "Location access is denied",
+              description: "To see your current location, please enable it in your browser settings.",
+          });
       }
+
       map.current?.on('draw.create', (e) => calculateAndShowMeasurement(e.features));
       map.current?.on('draw.update', (e) => calculateAndShowMeasurement(e.features));
       map.current?.on('draw.selectionchange', (e) => {
