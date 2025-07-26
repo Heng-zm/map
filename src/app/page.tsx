@@ -110,8 +110,17 @@ export default function MapExplorerPage() {
   }, [toast]);
   
   const toggleFullscreen = () => {
+    const docEl = document.documentElement as any;
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
+        if (docEl.requestFullscreen) {
+            docEl.requestFullscreen();
+        } else if (docEl.mozRequestFullScreen) { /* Firefox */
+            docEl.mozRequestFullScreen();
+        } else if (docEl.webkitRequestFullscreen) { /* Chrome, Safari & Opera */
+            docEl.webkitRequestFullscreen();
+        } else if (docEl.msRequestFullscreen) { /* IE/Edge */
+            docEl.msRequestFullscreen();
+        }
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen();
