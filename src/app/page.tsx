@@ -401,7 +401,7 @@ export default function MapExplorerPage() {
     if (!searchQuery || !map.current) return;
     const geocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
       searchQuery
-    )}.json?access_token=${mapboxgl.accessToken}`;
+    )}.json?access_token=${mapboxgl.accessToken}&language=km,en`;
 
     try {
       const response = await fetch(geocodingUrl);
