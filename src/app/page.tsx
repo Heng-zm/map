@@ -55,7 +55,6 @@ export default function MapExplorerPage() {
       }
       map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
 
-      // Request user's location
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -79,43 +78,41 @@ export default function MapExplorerPage() {
   }, [toast]);
 
   const handleDownloadMap = () => {
-    if (map.current) {
-        const mapCanvas = map.current.getCanvas();
-        const originalWidth = mapCanvas.width;
-        const originalHeight = mapCanvas.height;
+    if (!map.current || !mapContainer.current) return;
 
-        const targetWidth = 3000;
-        const targetHeight = 3000;
-        const scale = Math.min(targetWidth / originalWidth, targetHeight / originalHeight);
+    const mapInstance = map.current;
+    const container = mapContainer.current;
 
-        if (mapContainer.current) {
-            mapContainer.current.style.width = `${originalWidth * scale}px`;
-            mapContainer.current.style.height = `${originalHeight * scale}px`;
-        }
+    const mapCanvas = mapInstance.getCanvas();
+    const originalWidth = mapCanvas.clientWidth;
+    const originalHeight = mapCanvas.clientHeight;
+    
+    const targetResolution = 3000;
+    const scale = targetResolution / Math.max(originalWidth, originalHeight);
+    
+    const newWidth = originalWidth * scale;
+    const newHeight = originalHeight * scale;
 
-        map.current.resize();
+    container.style.width = `${newWidth}px`;
+    container.style.height = `${newHeight}px`;
+    mapInstance.resize();
 
-        // Give the map time to render the high-res tiles
-        setTimeout(() => {
-            if(!map.current) return;
+    // The map needs a moment to re-render at the new resolution.
+    // We wait for the 'render' event to ensure all tiles are loaded.
+    mapInstance.once('render', () => {
+      const dataURL = mapInstance.getCanvas().toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = 'map-high-quality.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-            const dataURL = map.current.getCanvas().toDataURL('image/png');
-            const link = document.createElement('a');
-            link.href = dataURL;
-            link.download = 'map-high-quality.png';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Restore original size
-            if (mapContainer.current) {
-                mapContainer.current.style.width = `${originalWidth}px`;
-                mapContainer.current.style.height = `${originalHeight}px`;
-            }
-            map.current.resize();
-
-        }, 1500); 
-    }
+      // Restore original size immediately after render.
+      container.style.width = `${originalWidth}px`;
+      container.style.height = `${originalHeight}px`;
+      mapInstance.resize();
+    });
   };
 
   return (
