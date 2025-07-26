@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { X, Car, Bike, Footprints } from 'lucide-react';
 import type { Map, LngLatLike } from 'mapbox-gl';
+import mapboxgl from 'mapbox-gl';
 
 interface DirectionsPanelProps {
   map: Map | null;
@@ -32,7 +33,7 @@ export function DirectionsPanel({ map, isOpen, onClose }: DirectionsPanelProps) 
     setRoute(null);
     setStart('');
     setEnd('');
-    if (map) {
+    if (map && map.isStyleLoaded() && map.getSource('directions')) {
       const source = map.getSource('directions') as mapboxgl.GeoJSONSource;
       if (source) {
         source.setData(emptyGeoJSON);
