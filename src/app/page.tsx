@@ -101,7 +101,7 @@ export default function MapExplorerPage() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-sans dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-      <div className="absolute top-0 left-0 right-0 bg-black/50 p-4 text-white backdrop-blur-sm">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-md bg-black/50 p-4 text-white backdrop-blur-sm rounded-lg">
         <h1 className="text-xl font-bold">Weather</h1>
         {loadingWeather && <p className="mt-2">Loading weather...</p>}
         {weather ? (
