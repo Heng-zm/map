@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, RotateCw } from 'lucide-react';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -22,6 +22,8 @@ export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const { toast } = useToast();
+  const [isRotating, setIsRotating] = useState(false);
+  const animationFrameId = useRef<number | null>(null);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -39,6 +41,8 @@ export default function MapExplorerPage() {
       style: 'mapbox://styles/mapbox/outdoors-v12',
       center: initialCenter,
       zoom: initialZoom,
+      pitch: 60,
+      bearing: 0,
       preserveDrawingBuffer: true,
     });
     
@@ -72,10 +76,33 @@ export default function MapExplorerPage() {
     });
 
     return () => {
+        if (animationFrameId.current) {
+            cancelAnimationFrame(animationFrameId.current);
+        }
         map.current?.remove();
         map.current = null;
     }
   }, [toast]);
+  
+  const rotateCamera = (timestamp: number) => {
+      if (!map.current) return;
+      //-360 to reverse direction
+      map.current.rotateTo((timestamp / 100) % 360, { duration: 0 });
+      animationFrameId.current = requestAnimationFrame(rotateCamera);
+  }
+
+  const handleToggleRotation = () => {
+    if (isRotating) {
+        if (animationFrameId.current) {
+            cancelAnimationFrame(animationFrameId.current);
+            animationFrameId.current = null;
+        }
+    } else {
+        animationFrameId.current = requestAnimationFrame(rotateCamera);
+    }
+    setIsRotating(!isRotating);
+  };
+  
 
   const handleDownloadMap = () => {
     if (!map.current || !mapContainer.current) return;
@@ -97,8 +124,6 @@ export default function MapExplorerPage() {
     container.style.height = `${newHeight}px`;
     mapInstance.resize();
 
-    // The map needs a moment to re-render at the new resolution.
-    // We wait for the 'idle' event to ensure all tiles are loaded.
     mapInstance.once('idle', () => {
       const dataURL = mapInstance.getCanvas().toDataURL('image/png');
       const link = document.createElement('a');
@@ -108,7 +133,6 @@ export default function MapExplorerPage() {
       link.click();
       document.body.removeChild(link);
 
-      // Restore original size immediately after render.
       container.style.width = `${originalWidth}px`;
       container.style.height = `${originalHeight}px`;
       mapInstance.resize();
@@ -118,7 +142,10 @@ export default function MapExplorerPage() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
       <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 flex gap-2">
+        <Button onClick={handleToggleRotation} size="icon" variant={isRotating ? "secondary" : "default"}>
+          <RotateCw className={isRotating ? 'animate-spin' : ''}/>
+        </Button>
         <Button onClick={handleDownloadMap} size="icon">
           <Download />
         </Button>
