@@ -6,8 +6,10 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { TrafficCone, Ruler } from 'lucide-react';
-import { lineString, featureCollection } from '@turf/helpers';
+import { lineString, polygon, featureCollection, point as turfPoint } from '@turf/helpers';
 import length from '@turf/length';
+import area from '@turf/area';
+import distance from '@turf/distance';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -31,7 +33,8 @@ export default function MapExplorerPage() {
   const { toast } = useToast();
   const [showTraffic, setShowTraffic] = useState(false);
   const [isMeasuring, setIsMeasuring] = useState(false);
-  const [distance, setDistance] = useState(0);
+  const [totalDistance, setTotalDistance] = useState(0);
+  const [totalArea, setTotalArea] = useState(0);
   const [measurementPoints, setMeasurementPoints] = useState<mapboxgl.LngLat[]>([]);
 
 
@@ -71,9 +74,9 @@ export default function MapExplorerPage() {
         source: 'measurement',
         paint: {
             'circle-radius': 5,
-            'circle-color': '#000',
-            'circle-stroke-width': 1,
-            'circle-stroke-color': '#fff'
+            'circle-color': '#fff',
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#000'
         },
         filter: ['in', '$type', 'Point']
       });
@@ -90,6 +93,34 @@ export default function MapExplorerPage() {
             'line-width': 2.5
         },
         filter: ['in', '$type', 'LineString']
+      });
+      map.current?.addLayer({
+        id: 'measurement-area',
+        type: 'fill',
+        source: 'measurement',
+        paint: {
+          'fill-color': '#0070f3',
+          'fill-opacity': 0.1
+        },
+        filter: ['in', '$type', 'Polygon']
+      });
+       map.current?.addLayer({
+        id: 'measurement-labels',
+        type: 'symbol',
+        source: 'measurement',
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+          'text-offset': [0, 0.8],
+          'text-anchor': 'top',
+          'text-size': 12
+        },
+        paint: {
+          'text-color': '#000',
+          'text-halo-color': '#fff',
+          'text-halo-width': 1
+        },
+        filter: ['has', 'label']
       });
 
     });
@@ -111,30 +142,66 @@ export default function MapExplorerPage() {
 
   const handleMapClick = useCallback((e: mapboxgl.MapLayerMouseEvent) => {
     if (!isMeasuring || !map.current) return;
-    const newPoints = [...measurementPoints, e.lngLat];
-    setMeasurementPoints(newPoints);
+    
+    const features = featureCollection([]);
+    let currentPoints = [...measurementPoints];
 
-    const features = newPoints.map(p => ({
-        type: 'Feature' as const,
-        geometry: {
-            type: 'Point' as const,
-            coordinates: [p.lng, p.lat]
-        },
-        properties: {}
-    }));
-
-    if (newPoints.length > 1) {
-        const line = lineString(newPoints.map(p => [p.lng, p.lat]));
-        features.push(line);
-        const calculatedDistance = length(line, { units: 'kilometers' });
-        setDistance(calculatedDistance);
+    if (currentPoints.length > 0) {
+        const firstPoint = turfPoint([currentPoints[0].lng, currentPoints[0].lat]);
+        const clickPoint = turfPoint([e.lngLat.lng, e.lngLat.lat]);
+        const dist = distance(firstPoint, clickPoint, { units: 'meters' });
+        
+        if (dist < 20 * (map.current.getZoom() / 10) && currentPoints.length > 1) { // Close polygon
+            currentPoints.push(currentPoints[0]);
+        } else {
+            currentPoints.push(e.lngLat);
+        }
     } else {
-        setDistance(0);
+        currentPoints.push(e.lngLat);
+    }
+    
+    setMeasurementPoints(currentPoints);
+    
+    const pointFeatures = currentPoints.map((p, i) => turfPoint([p.lng, p.lat], { id: i }));
+    features.features.push(...pointFeatures);
+
+    if (currentPoints.length > 1) {
+      const lineCoords = currentPoints.map(p => [p.lng, p.lat]);
+      const line = lineString(lineCoords);
+      features.features.push(line);
+
+      const calculatedDistance = length(line, { units: 'kilometers' });
+      setTotalDistance(calculatedDistance);
+
+      // Add segment labels
+      for (let i = 0; i < lineCoords.length - 1; i++) {
+        const segment = lineString([lineCoords[i], lineCoords[i+1]]);
+        const segLength = length(segment, {units: 'kilometers'});
+        const midpoint = turfPoint([(lineCoords[i][0] + lineCoords[i+1][0])/2, (lineCoords[i][1] + lineCoords[i+1][1])/2]);
+        midpoint.properties = {
+          label: `${segLength.toFixed(2)} km`
+        };
+        features.features.push(midpoint);
+      }
+
+      const first = currentPoints[0];
+      const last = currentPoints[currentPoints.length - 1];
+      if (currentPoints.length > 2 && first.lng === last.lng && first.lat === last.lat) {
+        const poly = polygon([lineCoords]);
+        features.features.push(poly);
+        const calculatedArea = area(poly);
+        setTotalArea(calculatedArea / 1000000); // convert to sq km
+      } else {
+        setTotalArea(0);
+      }
+    } else {
+        setTotalDistance(0);
+        setTotalArea(0);
     }
     
     const source = map.current.getSource('measurement') as mapboxgl.GeoJSONSource;
     if (source) {
-        source.setData(featureCollection(features));
+        source.setData(features);
     }
   }, [isMeasuring, measurementPoints]);
 
@@ -159,7 +226,8 @@ export default function MapExplorerPage() {
   
   const clearMeasurement = useCallback(() => {
     setMeasurementPoints([]);
-    setDistance(0);
+    setTotalDistance(0);
+    setTotalArea(0);
     if (map.current) {
         const source = map.current.getSource('measurement') as mapboxgl.GeoJSONSource;
         if (source) {
@@ -174,7 +242,7 @@ export default function MapExplorerPage() {
 
   const toggleMeasurement = () => {
     setIsMeasuring(prev => {
-        if (prev) {
+        if (prev) { // if turning off
             clearMeasurement();
         }
         return !prev;
@@ -206,10 +274,20 @@ export default function MapExplorerPage() {
       </div>
 
        {isMeasuring && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-white/75 backdrop-blur-sm p-2 rounded-lg shadow-md flex items-center gap-4">
-            <p className="font-semibold text-sm">
-                Distance: {distance.toFixed(2)} km
-            </p>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-white/75 backdrop-blur-sm p-3 rounded-lg shadow-md flex items-center gap-4">
+            <div className="flex flex-col text-sm font-semibold">
+              <p>
+                  Total Distance: {totalDistance.toFixed(2)} km
+              </p>
+              {totalArea > 0 && (
+                <p>
+                  Total Area: {totalArea.toFixed(2)} km²
+                </p>
+              )}
+               {measurementPoints.length > 1 && totalArea === 0 && (
+                <p className="text-xs text-gray-500 font-normal">Click first point to close shape & calculate area.</p>
+              )}
+            </div>
              <Button
                 size="sm"
                 variant="destructive"
