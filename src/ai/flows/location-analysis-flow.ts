@@ -18,7 +18,14 @@ const prompt = ai.definePrompt({
     name: 'locationAnalysisPrompt',
     input: { schema: LocationAnalysisInputSchema },
     output: { schema: LocationAnalysisOutputSchema },
-    prompt: `Analyze the location at latitude: {{latitude}} and longitude: {{longitude}}. Provide a concise and interesting analysis of the location in Khmer. Include details about its geography, history, and any notable points of interest. Also, provide the name of the location in Khmer.`,
+    prompt: `You are a master geographer and historian. Analyze the location at latitude: {{latitude}} and longitude: {{longitude}}.
+
+Provide a detailed and insightful analysis of the location in Khmer. Your analysis must include:
+1.  **Clear Geographical Analysis**: Describe the terrain, climate, and significant natural features like rivers, mountains, or coastlines. Be specific and clear in your geographical descriptions.
+2.  **Rich Historical Context**: Explain the history of the area, including key events, historical figures, and its cultural significance.
+3.  **Notable Points of Interest**: Mention any important landmarks, tourist attractions, or hidden gems.
+
+Finally, provide the official name of the location in Khmer.`,
 });
 
 const locationAnalysisFlow = ai.defineFlow(
