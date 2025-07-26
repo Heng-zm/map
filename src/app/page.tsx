@@ -127,8 +127,13 @@ export default function MapExplorerPage() {
               title: "Location Access Denied",
               description: "Showing default location. Click on the map to see weather elsewhere.",
             });
+            // Fetch for default location if user denies
+            fetchWeatherForLocation(initialCenter[1], initialCenter[0]);
           }
         );
+      } else {
+        // Fetch for default location if geolocation is not available
+        fetchWeatherForLocation(initialCenter[1], initialCenter[0]);
       }
     });
 
