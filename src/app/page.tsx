@@ -8,20 +8,36 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download, RotateCw, Layers, PenTool, Search } from 'lucide-react';
+import { Download, RotateCw, Layers, PenTool, Search, Compass } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarInset,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
 const containerStyle = {
   width: '100%',
-  height: '100vh'
+  height: '100%'
 };
 
 const initialCenter: [number, number] = [104.9282, 11.5564];
@@ -111,7 +127,7 @@ export default function MapExplorerPage() {
     if (measurementText && center) {
         measurementPopup.current = new mapboxgl.Popup({ closeOnClick: false, closeButton: false })
             .setLngLat(center)
-            .setHTML(`<div class="bg-white text-black p-2 rounded">${measurementText}</div>`)
+            .setHTML(`<div class="bg-card text-card-foreground p-2 rounded">${measurementText}</div>`)
             .addTo(map.current);
     }
   };
@@ -145,8 +161,107 @@ export default function MapExplorerPage() {
         line_string: true,
         point: true,
       },
+      styles: [
+        // default styles provided by mapbox-gl-draw
+        // ACTIVE (being drawn)
+        {
+          "id": "gl-draw-polygon-fill-active",
+          "type": "fill",
+          "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]],
+          "paint": {
+            "fill-color": "hsl(var(--primary))",
+            "fill-opacity": 0.1
+          }
+        },
+        {
+          "id": "gl-draw-polygon-stroke-active",
+          "type": "line",
+          "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]],
+          "layout": {
+            "line-cap": "round",
+            "line-join": "round"
+          },
+          "paint": {
+            "line-color": "hsl(var(--primary))",
+            "line-dasharray": [0.2, 2],
+            "line-width": 2
+          }
+        },
+        {
+          "id": "gl-draw-line-active",
+          "type": "line",
+          "filter": ["all", ["==", "$type", "LineString"], ["==", "active", "true"]],
+          "layout": {
+            "line-cap": "round",
+            "line-join": "round"
+          },
+          "paint": {
+            "line-color": "hsl(var(--primary))",
+            "line-dasharray": [0.2, 2],
+            "line-width": 2
+          }
+        },
+        {
+          "id": "gl-draw-polygon-and-line-vertex-stroke-active",
+          "type": "circle",
+          "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]],
+          "paint": {
+            "circle-radius": 5,
+            "circle-color": "hsl(var(--primary))"
+          }
+        },
+        {
+          "id": "gl-draw-polygon-and-line-vertex-active",
+          "type": "circle",
+          "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]],
+          "paint": {
+            "circle-radius": 3,
+            "circle-color": "#FFF"
+          }
+        },
+
+        // INACTIVE (already drawn)
+        {
+            "id": "gl-draw-polygon-fill-inactive",
+            "type": "fill",
+            "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
+            "paint": {
+                "fill-color": "hsl(var(--primary))",
+                "fill-outline-color": "hsl(var(--primary))",
+                "fill-opacity": 0.1
+            }
+        },
+        {
+            "id": "gl-draw-polygon-stroke-inactive",
+            "type": "line",
+            "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-color": "hsl(var(--primary))",
+                "line-width": 2
+            }
+        },
+        {
+            "id": "gl-draw-line-inactive",
+            "type": "line",
+            "filter": ["all", ["==", "active", "false"], ["==", "$type", "LineString"], ["!=", "mode", "static"]],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-color": "hsl(var(--primary))",
+                "line-width": 2
+            }
+        },
+      ]
     });
-    map.current.addControl(draw.current, 'top-left');
+    
+    // We don't add the control to the map directly. We'll manage its UI through our sidebar.
+    // map.current.addControl(draw.current, 'top-left');
 
     map.current.on('style.load', () => {
       setMapTerrain();
@@ -235,13 +350,16 @@ export default function MapExplorerPage() {
     });
   };
   
-  const handleSwitchStyle = (index: number) => {
+  const handleSwitchStyle = (style: string) => {
     if(!map.current) return;
-    setCurrentStyleIndex(index);
-    map.current.setStyle(mapStyles[index].style);
+    const styleIndex = mapStyles.findIndex(s => s.style === style);
+    if(styleIndex === -1) return;
+    
+    setCurrentStyleIndex(styleIndex);
+    map.current.setStyle(mapStyles[styleIndex].style);
     toast({
         title: "Map style changed",
-        description: `Switched to ${mapStyles[index].name}`,
+        description: `Switched to ${mapStyles[styleIndex].name}`,
     });
   }
 
@@ -253,10 +371,19 @@ export default function MapExplorerPage() {
 
     const currentMode = draw.current.getMode();
     
-    if (newIsDrawing && currentMode === 'simple_select') {
+    if (newIsDrawing) {
+      if(map.current && !map.current.hasControl(draw.current)){
+        map.current.addControl(draw.current);
+      }
       draw.current.changeMode('draw_polygon');
-    } else if (!newIsDrawing && currentMode !== 'simple_select') {
+    } else {
       draw.current.changeMode('simple_select');
+      if(map.current && map.current.hasControl(draw.current)){
+         const drawnFeatures = draw.current.getAll();
+         if (drawnFeatures.features.length === 0) {
+            map.current.removeControl(draw.current);
+         }
+      }
       removeMeasurement();
     }
   };
@@ -295,50 +422,92 @@ export default function MapExplorerPage() {
       });
     }
   };
-
+  
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-background font-body dark">
-      <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-      <div className="absolute top-4 left-4 flex flex-col gap-2">
-        <div className="flex gap-2">
-          <Input
-            type="text"
-            placeholder="Search for a location..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="w-64 bg-white/80 backdrop-blur-sm"
-          />
-          <Button onClick={handleSearch} size="icon">
-            <Search />
-          </Button>
-        </div>
-      </div>
-      <div className="absolute top-4 right-4 flex gap-2">
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button size="icon">
-                    <Layers />
+    <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
+      <SidebarProvider>
+        <Sidebar>
+          <SidebarHeader>
+            <div className="flex items-center gap-2">
+              <Compass />
+              <h1 className="text-lg font-semibold">Map Explorer</h1>
+            </div>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupLabel>Search</SidebarGroupLabel>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Find a location..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <Button onClick={handleSearch} size="icon" variant="outline">
+                  <Search />
                 </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-                {mapStyles.map((style, index) => (
-                    <DropdownMenuItem key={style.name} onClick={() => handleSwitchStyle(index)}>
-                        {style.name}
-                    </DropdownMenuItem>
-                ))}
-            </DropdownMenuContent>
-        </DropdownMenu>
-        <Button onClick={handleToggleRotation} size="icon" variant={isRotating ? "secondary" : "default"}>
-          <RotateCw className={isRotating ? 'animate-spin' : ''}/>
-        </Button>
-        <Button onClick={handleDownloadMap} size="icon">
-          <Download />
-        </Button>
-        <Button onClick={handleToggleDrawing} size="icon" variant={isDrawing ? 'secondary' : 'default'}>
-          <PenTool />
-        </Button>
-      </div>
+              </div>
+            </SidebarGroup>
+            
+            <SidebarGroup>
+              <SidebarGroupLabel>Map Styles</SidebarGroupLabel>
+              <Select onValueChange={handleSwitchStyle} defaultValue={mapStyles[currentStyleIndex].style}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a map style" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mapStyles.map((style) => (
+                    <SelectItem key={style.name} value={style.style}>
+                      {style.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SidebarGroup>
+
+            <SidebarGroup>
+              <SidebarGroupLabel>Tools</SidebarGroupLabel>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton 
+                            onClick={handleToggleRotation} 
+                            isActive={isRotating}
+                            tooltip="Rotate Camera"
+                        >
+                            <RotateCw className={isRotating ? 'animate-spin' : ''}/>
+                            <span>{isRotating ? 'Stop Rotation' : 'Rotate Camera'}</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                     <SidebarMenuItem>
+                        <SidebarMenuButton 
+                            onClick={handleToggleDrawing} 
+                            isActive={isDrawing}
+                            tooltip="Draw on Map"
+                        >
+                            <PenTool />
+                            <span>{isDrawing ? 'Exit Drawing' : 'Draw on Map'}</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </SidebarGroup>
+          </SidebarContent>
+          <SidebarFooter>
+            <Button onClick={handleDownloadMap} className="w-full">
+              <Download />
+              Download Map
+            </Button>
+          </SidebarFooter>
+        </Sidebar>
+        <SidebarInset>
+          <div className="absolute top-2 left-2 z-10">
+             <SidebarTrigger />
+          </div>
+          <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
+        </SidebarInset>
+      </SidebarProvider>
     </div>
   );
 }
+
+    
