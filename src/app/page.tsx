@@ -98,8 +98,8 @@ export default function MapExplorerPage() {
     mapInstance.resize();
 
     // The map needs a moment to re-render at the new resolution.
-    // We wait for the 'render' event to ensure all tiles are loaded.
-    mapInstance.once('render', () => {
+    // We wait for the 'idle' event to ensure all tiles are loaded.
+    mapInstance.once('idle', () => {
       const dataURL = mapInstance.getCanvas().toDataURL('image/png');
       const link = document.createElement('a');
       link.href = dataURL;
