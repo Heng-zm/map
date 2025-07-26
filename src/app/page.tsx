@@ -26,10 +26,7 @@ const initialZoom = 13;
 const mapStyles = [
   { name: 'Standard', style: 'mapbox://styles/mapbox/standard' },
   { name: 'Outdoors', style: 'mapbox://styles/mapbox/outdoors-v12' },
-  { name: 'Streets', style: 'mapbox://styles/mapbox/streets-v12' },
   { name: 'Satellite', style: 'mapbox://styles/mapbox/satellite-streets-v12' },
-  { name: 'Light', style: 'mapbox://styles/mapbox/light-v11' },
-  { name: 'Dark', style: 'mapbox://styles/mapbox/dark-v11' },
 ];
 
 export default function MapExplorerPage() {
@@ -140,8 +137,8 @@ export default function MapExplorerPage() {
     const mapInstance = map.current;
     const container = mapContainer.current;
 
-    const originalWidth = mapCanvas.clientWidth;
-    const originalHeight = mapCanvas.clientHeight;
+    const originalWidth = container.clientWidth;
+    const originalHeight = container.clientHeight;
     
     const targetResolution = 3000;
     const scale = targetResolution / Math.max(originalWidth, originalHeight);
