@@ -41,6 +41,7 @@ export default function MapExplorerPage() {
   const animationFrameId = useRef<number | null>(null);
   const [currentStyleIndex, setCurrentStyleIndex] = useState(0);
   const [isDrawing, setIsDrawing] = useState(false);
+  const measurementPopup = useRef<mapboxgl.Popup | null>(null);
 
   const startRotation = () => {
     if (animationFrameId.current) {
@@ -77,25 +78,38 @@ export default function MapExplorerPage() {
     map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
   }
 
+  const removeMeasurement = () => {
+    if (measurementPopup.current) {
+      measurementPopup.current.remove();
+      measurementPopup.current = null;
+    }
+  };
+  
   const calculateAndShowMeasurement = (features: any[]) => {
-    if (features.length === 0) return;
-
+    removeMeasurement();
+    if (features.length === 0 || !map.current) return;
+  
     const feature = features[0];
     let measurementText = '';
-
+    let center: [number, number] | undefined;
+  
     if (feature.geometry.type === 'Polygon') {
       const area = turf.area(feature);
       measurementText = `Area: ${(area / 1000000).toFixed(2)} km²`;
+      const centroid = turf.centroid(feature);
+      center = centroid.geometry.coordinates as [number, number];
     } else if (feature.geometry.type === 'LineString') {
       const length = turf.length(feature, { units: 'kilometers' });
       measurementText = `Length: ${length.toFixed(2)} km`;
+      const centroid = turf.centroid(feature);
+      center = centroid.geometry.coordinates as [number, number];
     }
-
-    if (measurementText) {
-      toast({
-        title: 'Measurement',
-        description: measurementText,
-      });
+  
+    if (measurementText && center) {
+        measurementPopup.current = new mapboxgl.Popup({ closeOnClick: false, closeButton: false })
+            .setLngLat(center)
+            .setHTML(`<div class="bg-white text-black p-2 rounded">${measurementText}</div>`)
+            .addTo(map.current);
     }
   };
 
@@ -152,13 +166,21 @@ export default function MapExplorerPage() {
       }
       map.current?.on('draw.create', (e) => calculateAndShowMeasurement(e.features));
       map.current?.on('draw.update', (e) => calculateAndShowMeasurement(e.features));
-      map.current?.on('draw.selectionchange', (e) => calculateAndShowMeasurement(e.features));
+      map.current?.on('draw.selectionchange', (e) => {
+          if (e.features.length > 0) {
+              calculateAndShowMeasurement(e.features)
+          } else {
+              removeMeasurement();
+          }
+      });
+      map.current?.on('draw.delete', removeMeasurement);
     });
 
     return () => {
         if (animationFrameId.current) {
             cancelAnimationFrame(animationFrameId.current);
         }
+        removeMeasurement();
         map.current?.remove();
         map.current = null;
     }
@@ -175,23 +197,26 @@ export default function MapExplorerPage() {
   const handleDownloadMap = () => {
     if (!map.current || !mapContainer.current) return;
     stopRotation();
-
+  
     const mapInstance = map.current;
     const container = mapContainer.current;
-
+  
     const originalWidth = container.clientWidth;
     const originalHeight = container.clientHeight;
-    
+  
     const targetResolution = 3000;
-    const scale = targetResolution / Math.max(originalWidth, originalHeight);
     
+    const scale = originalWidth > originalHeight 
+      ? targetResolution / originalWidth
+      : targetResolution / originalHeight;
+  
     const newWidth = originalWidth * scale;
     const newHeight = originalHeight * scale;
-
+  
     container.style.width = `${newWidth}px`;
     container.style.height = `${newHeight}px`;
     mapInstance.resize();
-
+  
     mapInstance.once('idle', () => {
       const dataURL = mapInstance.getCanvas().toDataURL('image/png');
       const link = document.createElement('a');
@@ -200,7 +225,7 @@ export default function MapExplorerPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
+  
       container.style.width = `${originalWidth}px`;
       container.style.height = `${originalHeight}px`;
       mapInstance.resize();
@@ -229,6 +254,7 @@ export default function MapExplorerPage() {
       draw.current.changeMode('draw_polygon');
     } else if (!newIsDrawing && currentMode !== 'simple_select') {
       draw.current.changeMode('simple_select');
+      removeMeasurement();
     }
   };
 
@@ -263,3 +289,5 @@ export default function MapExplorerPage() {
     </div>
   );
 }
+
+    
