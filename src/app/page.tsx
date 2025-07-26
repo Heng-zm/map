@@ -28,8 +28,8 @@ export default function MapExplorerPage() {
     if (!mapboxgl.accessToken) {
         toast({
             variant: "destructive",
-            title: "โทខេน Mapbox មិនត្រូវបានកំណត់ទេ",
-            description: "សូមផ្ដល់โทខេน Mapbox នៅក្នុងអថេរបរិស្ថានរបស់អ្នក។",
+            title: "โทเค็น Mapbox ไม่ได้ตั้งค่า",
+            description: "โปรดระบุโทเค็น Mapbox ในตัวแปรสภาพแวดล้อมของคุณ",
         });
         return;
     }
