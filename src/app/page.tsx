@@ -29,6 +29,7 @@ interface WeatherData {
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const marker = useRef<mapboxgl.Marker | null>(null);
   const { toast } = useToast();
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
@@ -78,8 +79,20 @@ export default function MapExplorerPage() {
 
       setLoadingWeather(true);
       setWeather(null);
+      
+      const { lat, lng } = e.lngLat;
+
+      if (marker.current) {
+        marker.current.setLngLat([lng, lat]);
+      } else {
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        marker.current = new mapboxgl.Marker(el)
+          .setLngLat([lng, lat])
+          .addTo(map.current!);
+      }
+
       try {
-        const { lat, lng } = e.lngLat;
         const weatherData = await getWeather({ latitude: lat, longitude: lng });
         setWeather(weatherData);
       } catch (error) {
