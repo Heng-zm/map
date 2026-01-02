@@ -26,13 +26,16 @@ body {
 .mapboxgl-ctrl-directions {
     min-width: 100% !important;
     max-width: 100% !important;
+    background-color: transparent !important;
 }
 
 .mapbox-directions-origin, .mapbox-directions-destination {
     position: relative;
-    background-color: transparent;
+    background-color: hsl(var(--input)) !important;
     border: none;
     box-shadow: none;
+    border-radius: 9999px;
+    padding-left: 2.25rem;
 }
 
 .mapboxgl-ctrl-geocoder {
@@ -43,10 +46,13 @@ body {
     min-width: 100%;
     max-width: 100%;
     font-size: 0.875rem;
+    color: hsl(var(--foreground))
 }
 
 .mapboxgl-ctrl-geocoder--input {
     color: hsl(var(--foreground)) !important;
+    padding-left: 2.25rem;
+    height: 3rem;
 }
 
 .mapboxgl-ctrl-geocoder--input::placeholder {
@@ -69,6 +75,12 @@ body {
 
 .mapbox-directions-instructions {
     background-color: hsl(var(--card)) !important;
+    border-radius: 1rem;
+    margin-top: 0.5rem;
+}
+
+.mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right {
+    display: none;
 }
 
 @layer base {

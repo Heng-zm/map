@@ -6,7 +6,7 @@ import MapboxDirections from '@mapbox/mapbox-gl-directions/dist/mapbox-gl-direct
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Globe, ArrowUp, Search, Route, Layers, Star, Navigation } from 'lucide-react';
+import { Globe, Layers, Star, Navigation, Search, Route } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -131,8 +131,6 @@ export default function MapExplorerPage() {
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery || !map.current || !mapboxgl.accessToken) return;
-    
-    setDirectionsVisible(false);
 
     const geocodingUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json`);
     geocodingUrl.searchParams.append('access_token', mapboxgl.accessToken);
@@ -148,7 +146,7 @@ export default function MapExplorerPage() {
         if (searchMarker.current) {
           searchMarker.current.remove();
         }
-        searchMarker.current = new mapboxgl.Marker()
+        searchMarker.current = new mapboxgl.Marker({element: createCustomMarker()})
           .setLngLat([longitude, latitude])
           .addTo(map.current);
       } else {
@@ -167,6 +165,12 @@ export default function MapExplorerPage() {
       });
     }
   }, [searchQuery, toast]);
+  
+  const createCustomMarker = () => {
+    const markerEl = document.createElement('div');
+    markerEl.className = 'custom-marker';
+    return markerEl;
+  }
   
   const triggerGeolocation = useCallback(() => {
     const permissionStatus = localStorage.getItem('mapbox_location_permission');
@@ -222,18 +226,14 @@ export default function MapExplorerPage() {
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
         
-        <div className="absolute top-4 left-4 right-4 md:w-96">
+        <div className="absolute top-4 left-4 right-4 ">
            <div className="bg-card/90 backdrop-blur-sm rounded-xl p-3 flex flex-col gap-2 shadow-lg border border-border">
-                <div className="flex gap-2">
-                    <Button onClick={toggleDirections} size="icon" variant={directionsVisible ? "default" : "secondary"} className="h-12 w-12 rounded-full">
+                <div className="flex items-center gap-2">
+                    <Button onClick={toggleDirections} size="icon" variant={directionsVisible ? "default" : "secondary"} className="h-12 w-12 rounded-full flex-shrink-0">
                         <Route className="h-5 w-5" />
                     </Button>
-                    <div className="w-full flex flex-col gap-2">
-                        {directionsVisible && (
-                            <>
-                                <div id="directions-container" className="h-24"></div>
-                            </>
-                        )}
+                    <div className="w-full flex-grow">
+                        <div id="directions-container" className={directionsVisible ? '' : 'hidden'}></div>
                         {!directionsVisible && (
                              <div className="relative w-full">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -247,9 +247,31 @@ export default function MapExplorerPage() {
                             </div>
                         )}
                     </div>
-                     <Button onClick={handleSearch} size="icon" className="h-12 w-12 rounded-full" key="searchButton">
-                        <Search className="h-5 w-5" />
-                    </Button>
+                     <div className="flex items-center gap-1 bg-secondary p-1 rounded-full">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground">
+                                    <Layers />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {mapStyles.map((style) => (
+                                    <DropdownMenuItem key={style.name} onClick={() => handleSwitchStyle(style.style)}>
+                                        {style.icon}
+                                        <span>{style.name}</span>
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        
+                        <Button variant={is3D ? "secondary" : "ghost"} size="icon" className="rounded-full h-10 w-10 text-foreground" onClick={toggle3D}>
+                           <div className="w-5 h-5 flex items-center justify-center font-semibold text-sm">3D</div>
+                        </Button>
+
+                         <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground" onClick={triggerGeolocation}>
+                            <Navigation />
+                        </Button>
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     {filterButtons.map((filter) => (
@@ -258,42 +280,9 @@ export default function MapExplorerPage() {
                 </div>
            </div>
         </div>
-
-        <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
-            <div className="bg-card/90 backdrop-blur-sm rounded-full p-1 flex flex-col gap-1 shadow-lg border border-border">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-full h-12 w-12">
-                            <Layers />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        {mapStyles.map((style) => (
-                            <DropdownMenuItem key={style.name} onClick={() => handleSwitchStyle(style.style)}>
-                                {style.icon}
-                                <span>{style.name}</span>
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                
-                <Button variant={is3D ? "secondary" : "ghost"} size="icon" className="rounded-full h-12 w-12" onClick={toggle3D}>
-                   <div className="w-5 h-5 flex items-center justify-center font-semibold text-sm">3D</div>
-                </Button>
-
-                 <Button variant="ghost" size="icon" className="rounded-full h-12 w-12" onClick={triggerGeolocation}>
-                    <Navigation />
-                </Button>
-            </div>
-        </div>
-
-        <style jsx>{`
-            #directions-container {
-                display: ${directionsVisible ? 'block' : 'none'};
-                width: 100%;
-            }
-        `}</style>
+        
          <script
+            key="mapbox-directions-mover"
             dangerouslySetInnerHTML={{
               __html: `
                 const directionsContainer = document.querySelector('#directions-container');
