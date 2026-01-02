@@ -227,8 +227,8 @@ export default function MapExplorerPage() {
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
         
         <div className="absolute top-4 left-4 right-4 ">
-           <div className="bg-card/90 backdrop-blur-sm rounded-xl p-3 flex flex-col gap-2 shadow-lg border border-border">
-                <div className="flex items-center gap-2">
+           <div className="bg-card/90 backdrop-blur-sm rounded-xl p-3 flex flex-col md:flex-row items-center gap-2 shadow-lg border border-border">
+                <div className="w-full md:w-auto flex items-center gap-2">
                     <Button onClick={toggleDirections} size="icon" variant={directionsVisible ? "default" : "secondary"} className="h-12 w-12 rounded-full flex-shrink-0">
                         <Route className="h-5 w-5" />
                     </Button>
@@ -247,36 +247,38 @@ export default function MapExplorerPage() {
                             </div>
                         )}
                     </div>
-                     <div className="flex items-center gap-1 bg-secondary p-1 rounded-full">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground">
-                                    <Layers />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                {mapStyles.map((style) => (
-                                    <DropdownMenuItem key={style.name} onClick={() => handleSwitchStyle(style.style)}>
-                                        {style.icon}
-                                        <span>{style.name}</span>
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                        
-                        <Button variant={is3D ? "secondary" : "ghost"} size="icon" className="rounded-full h-10 w-10 text-foreground" onClick={toggle3D}>
-                           <div className="w-5 h-5 flex items-center justify-center font-semibold text-sm">3D</div>
-                        </Button>
-
-                         <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground" onClick={triggerGeolocation}>
-                            <Navigation />
-                        </Button>
-                    </div>
                 </div>
-                <div className="flex gap-2">
+
+                <div className="w-full md:w-auto flex flex-wrap justify-center gap-2">
                     {filterButtons.map((filter) => (
-                        <Button key={filter} variant="secondary" className="flex-1 rounded-full">{filter}</Button>
+                        <Button key={filter} variant="secondary" className="flex-1 md:flex-initial rounded-full">{filter}</Button>
                     ))}
+                </div>
+                
+                <div className="flex items-center gap-1 bg-secondary p-1 rounded-full">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground">
+                                <Layers />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {mapStyles.map((style) => (
+                                <DropdownMenuItem key={style.name} onClick={() => handleSwitchStyle(style.style)}>
+                                    {style.icon}
+                                    <span>{style.name}</span>
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    
+                    <Button variant={is3D ? "secondary" : "ghost"} size="icon" className="rounded-full h-10 w-10 text-foreground" onClick={toggle3D}>
+                       <div className="w-5 h-5 flex items-center justify-center font-semibold text-sm">3D</div>
+                    </Button>
+
+                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground" onClick={triggerGeolocation}>
+                        <Navigation />
+                    </Button>
                 </div>
            </div>
         </div>
