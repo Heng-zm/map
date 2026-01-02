@@ -277,7 +277,7 @@ export default function MapExplorerPage() {
           directionsContainer.style.display = directionsVisible ? '' : 'none';
         }
     }
-  }, [directionsVisible])
+  }, [directionsVisible]);
 
 
   const handleSwitchStyle = useCallback((style: string) => {
@@ -458,8 +458,10 @@ export default function MapExplorerPage() {
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                        <SidebarMenuButton tooltip="Toggle 3D" onClick={toggle3D} isActive={is3D}>
-                            {is3D ? '3D' : '2D'}
+                        <SidebarMenuButton tooltip={is3D ? "Switch to 2D" : "Switch to 3D"} onClick={toggle3D} isActive={is3D}>
+                            <div className="w-4 h-4 flex items-center justify-center font-semibold text-xs">
+                                {is3D ? '3D' : '2D'}
+                            </div>
                             <span>{is3D ? '3D View' : '2D View'}</span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
