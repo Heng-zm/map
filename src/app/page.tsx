@@ -77,7 +77,7 @@ export default function MapExplorerPage() {
   
     if (measurementText && center) {
         const popupContent = document.createElement('div');
-        popupContent.className = 'bg-card text-card-foreground p-2 rounded text-sm relative';
+        popupContent.className = 'bg-card text-card-foreground p-2 rounded text-sm relative shadow-md';
         popupContent.innerHTML = `<span>${measurementText}</span>`;
         
         const closeButton = document.createElement('button');
@@ -115,7 +115,14 @@ export default function MapExplorerPage() {
         });
         map.current.setTerrain(is3DEnabled ? { 'source': 'mapbox-dem', 'exaggeration': 1.5 } : null);
     }
-    map.current.setPitch(is3DEnabled ? 60 : 0);
+    if (is3DEnabled) {
+      map.current.setPitch(60);
+    } else {
+      map.current.setPitch(0);
+      // Fit bounds to re-orient the map if it's tilted
+      const bounds = map.current.getBounds();
+      map.current.fitBounds(bounds, { pitch: 0, bearing: 0, duration: 1000});
+    }
   }, []);
 
   useEffect(() => {
@@ -272,26 +279,26 @@ export default function MapExplorerPage() {
     geolocateControl.current?.trigger();
   }, [toast]);
 
-  const toggle3D = () => {
+  const toggle3D = useCallback(() => {
     setIs3D(prev => {
       const newState = !prev;
       setMapTerrain(newState);
       return newState;
     });
-  };
+  }, [setMapTerrain]);
 
-  const setDrawMode = (mode: string) => {
+  const setDrawMode = useCallback((mode: string) => {
     if (draw.current) {
       draw.current.changeMode(mode);
     }
-  };
+  }, []);
 
-  const deleteFeatures = () => {
+  const deleteFeatures = useCallback(() => {
     if (draw.current) {
       draw.current.deleteAll();
       removeMeasurement();
     }
-  };
+  }, [removeMeasurement]);
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
@@ -382,5 +389,3 @@ export default function MapExplorerPage() {
     </div>
   );
 }
-
-    
