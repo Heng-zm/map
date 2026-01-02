@@ -52,7 +52,7 @@ export default function MapExplorerPage() {
       showUserLocation: true
     });
 
-    mapInstance.addControl(geolocate);
+    mapInstance.addControl(geolocate, 'bottom-right');
 
     mapInstance.on('load', () => {
       geolocate.trigger();
