@@ -8,17 +8,15 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download, RotateCw, PenTool, Search, Layers, LocateFixed } from 'lucide-react';
+import { Compass, Download, Mic, PenTool, Search, Layers, LocateFixed, ArrowUp, Globe } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from "@/components/drawer";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -42,45 +40,23 @@ export default function MapExplorerPage() {
   const map = useRef<mapboxgl.Map | null>(null);
   const draw = useRef<MapboxDraw | null>(null);
   const { toast } = useToast();
-  const [isRotating, setIsRotating] = useState(false);
-  const animationFrameId = useRef<number | null>(null);
   const [currentStyle, setCurrentStyle] = useState(mapStyles[0].style);
-  const [isDrawing, setIsDrawing] = useState(false);
   const measurementPopup = useRef<mapboxgl.Popup | null>(null);
   const searchMarker = useRef<mapboxgl.Marker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const geolocateControl = useRef<mapboxgl.GeolocateControl | null>(null);
+  const [is3D, setIs3D] = useState(true);
 
-
-  const startRotation = () => {
-    if (map.current) {
-        map.current.easeTo({ bearing: map.current.getBearing() + 180, duration: 2000, easing: (n) => n });
-    }
-    const rotate = () => {
-      if (!map.current) return;
-      map.current.rotateTo((map.current.getBearing() + 0.1) % 360, { duration: 0 });
-      animationFrameId.current = requestAnimationFrame(rotate);
-    };
-    if (animationFrameId.current) {
-      cancelAnimationFrame(animationFrameId.current);
-    }
-    animationFrameId.current = requestAnimationFrame(rotate);
-    setIsRotating(true);
-  };
-
-  const stopRotation = () => {
-    if (animationFrameId.current) {
-      cancelAnimationFrame(animationFrameId.current);
-      animationFrameId.current = null;
-    }
-    setIsRotating(false);
-  };
-  
-  const setMapTerrain = useCallback(() => {
+  const setMapTerrain = useCallback((is3DEnabled: boolean) => {
     if(!map.current) return;
 
     if (map.current.getSource('mapbox-dem')) {
-        map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        map.current.setTerrain(is3DEnabled ? { 'source': 'mapbox-dem', 'exaggeration': 1.5 } : null);
+        if (is3DEnabled) {
+          map.current.setPitch(60);
+        } else {
+          map.current.setPitch(0);
+        }
         return;
     }
 
@@ -90,8 +66,13 @@ export default function MapExplorerPage() {
         'tileSize': 512,
         'maxzoom': 14
     });
-
-    map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+    
+    map.current.setTerrain(is3DEnabled ? { 'source': 'mapbox-dem', 'exaggeration': 1.5 } : null);
+    if (is3DEnabled) {
+      map.current.setPitch(60);
+    } else {
+      map.current.setPitch(0);
+    }
   }, []);
 
   const removeMeasurement = useCallback(() => {
@@ -122,9 +103,9 @@ export default function MapExplorerPage() {
     }
   
     if (measurementText && center) {
-        measurementPopup.current = new mapboxgl.Popup({ closeOnClick: false, closeButton: false })
+        measurementPopup.current = new mapboxgl.Popup({ closeOnClick: false, closeButton: false, offset: 10 })
             .setLngLat(center)
-            .setHTML(`<div class="bg-card text-card-foreground p-2 rounded">${measurementText}</div>`)
+            .setHTML(`<div class="bg-card text-card-foreground p-2 rounded text-sm">${measurementText}</div>`)
             .addTo(map.current);
     }
   }, [removeMeasurement]);
@@ -154,7 +135,7 @@ export default function MapExplorerPage() {
       style: currentStyle,
       center: initialCenter,
       zoom: initialZoom,
-      pitch: 60,
+      pitch: is3D ? 60 : 0,
       bearing: 0,
       preserveDrawingBuffer: true,
     });
@@ -173,107 +154,65 @@ export default function MapExplorerPage() {
           "id": "gl-draw-polygon-fill-active",
           "type": "fill",
           "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]],
-          "paint": {
-            "fill-color": "hsl(var(--primary))",
-            "fill-opacity": 0.1
-          }
+          "paint": { "fill-color": "hsl(var(--primary))", "fill-opacity": 0.1 }
         },
         {
           "id": "gl-draw-polygon-stroke-active",
           "type": "line",
           "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]],
-          "layout": {
-            "line-cap": "round",
-            "line-join": "round"
-          },
-          "paint": {
-            "line-color": "hsl(var(--primary))",
-            "line-dasharray": [0.2, 2],
-            "line-width": 2
-          }
+          "layout": { "line-cap": "round", "line-join": "round" },
+          "paint": { "line-color": "hsl(var(--primary))", "line-dasharray": [0.2, 2], "line-width": 2 }
         },
         {
           "id": "gl-draw-line-active",
           "type": "line",
           "filter": ["all", ["==", "$type", "LineString"], ["==", "active", "true"]],
-          "layout": {
-            "line-cap": "round",
-            "line-join": "round"
-          },
-          "paint": {
-            "line-color": "hsl(var(--primary))",
-            "line-dasharray": [0.2, 2],
-            "line-width": 2
-          }
+          "layout": { "line-cap": "round", "line-join": "round" },
+          "paint": { "line-color": "hsl(var(--primary))", "line-dasharray": [0.2, 2], "line-width": 2 }
         },
         {
           "id": "gl-draw-polygon-and-line-vertex-stroke-active",
           "type": "circle",
           "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]],
-          "paint": {
-            "circle-radius": 5,
-            "circle-color": "hsl(var(--primary))"
-          }
+          "paint": { "circle-radius": 5, "circle-color": "hsl(var(--primary))" }
         },
         {
           "id": "gl-draw-polygon-and-line-vertex-active",
           "type": "circle",
           "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]],
-          "paint": {
-            "circle-radius": 3,
-            "circle-color": "#FFF"
-          }
+          "paint": { "circle-radius": 3, "circle-color": "#FFF" }
         },
         {
             "id": "gl-draw-polygon-fill-inactive",
             "type": "fill",
             "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
-            "paint": {
-                "fill-color": "hsl(var(--primary))",
-                "fill-outline-color": "hsl(var(--primary))",
-                "fill-opacity": 0.1
-            }
+            "paint": { "fill-color": "hsl(var(--primary))", "fill-outline-color": "hsl(var(--primary))", "fill-opacity": 0.1 }
         },
         {
             "id": "gl-draw-polygon-stroke-inactive",
             "type": "line",
             "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
-            "layout": {
-                "line-cap": "round",
-                "line-join": "round"
-            },
-            "paint": {
-                "line-color": "hsl(var(--primary))",
-                "line-width": 2
-            }
+            "layout": { "line-cap": "round", "line-join": "round" },
+            "paint": { "line-color": "hsl(var(--primary))", "line-width": 2 }
         },
         {
             "id": "gl-draw-line-inactive",
             "type": "line",
             "filter": ["all", ["==", "active", "false"], ["==", "$type", "LineString"], ["!=", "mode", "static"]],
-            "layout": {
-                "line-cap": "round",
-                "line-join": "round"
-            },
-            "paint": {
-                "line-color": "hsl(var(--primary))",
-                "line-width": 2
-            }
+            "layout": { "line-cap": "round", "line-join": "round" },
+            "paint": { "line-color": "hsl(var(--primary))", "line-width": 2 }
         },
       ]
     });
     
     geolocateControl.current = new mapboxgl.GeolocateControl({
-        positionOptions: {
-            enableHighAccuracy: true
-        },
+        positionOptions: { enableHighAccuracy: true },
         trackUserLocation: true,
         showUserHeading: true,
-        showUserLocation: false, 
     });
 
     const onStyleLoad = () => {
-      setMapTerrain();
+      setMapTerrain(is3D);
     };
     
     const onLoad = () => {
@@ -281,18 +220,12 @@ export default function MapExplorerPage() {
       mapInstance.addControl(geolocateControl.current, 'top-right');
       
       const permissionStatus = localStorage.getItem('mapbox_location_permission');
-
       if (permissionStatus === 'granted') {
-        geolocateControl.current.trigger();
+        // geolocateControl.current.trigger(); // Don't auto-trigger
       } else if (permissionStatus === null) {
         navigator.geolocation.getCurrentPosition(
-            () => { 
-                localStorage.setItem('mapbox_location_permission', 'granted');
-                geolocateControl.current?.trigger();
-            },
-            () => { 
-                localStorage.setItem('mapbox_location_permission', 'denied');
-            },
+            () => localStorage.setItem('mapbox_location_permission', 'granted'),
+            () => localStorage.setItem('mapbox_location_permission', 'denied'),
             { enableHighAccuracy: true }
         );
       }
@@ -307,9 +240,6 @@ export default function MapExplorerPage() {
     mapInstance.on('load', onLoad);
 
     return () => {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
       mapInstance.off('style.load', onStyleLoad);
       mapInstance.off('load', onLoad);
       mapInstance.off('draw.create', handleDrawEvents);
@@ -323,23 +253,10 @@ export default function MapExplorerPage() {
         map.current = null;
       }
     }
-  }, [currentStyle, toast, setMapTerrain, calculateAndShowMeasurement, removeMeasurement, handleDrawEvents]);
-
-  const handleToggleRotation = () => {
-    if (isRotating) {
-        stopRotation();
-    } else {
-        startRotation();
-    }
-  };
+  }, [currentStyle, toast, setMapTerrain, calculateAndShowMeasurement, removeMeasurement, handleDrawEvents, is3D]);
 
   const handleDownloadMap = useCallback(() => {
     if (!map.current) return;
-    
-    if (isRotating) {
-        stopRotation();
-    }
-
     const mapInstance = map.current;
 
     mapInstance.once('idle', () => {
@@ -355,7 +272,7 @@ export default function MapExplorerPage() {
         description: "The map image has been saved."
       });
     });
-  }, [isRotating, toast]);
+  }, [toast]);
   
   const handleSwitchStyle = useCallback((style: string) => {
     if(!map.current) return;
@@ -367,26 +284,6 @@ export default function MapExplorerPage() {
         description: `Switched to ${styleName}`,
     });
   }, [toast]);
-
-  const handleToggleDrawing = useCallback(() => {
-    if (!draw.current) return;
-
-    const newIsDrawing = !isDrawing;
-    setIsDrawing(newIsDrawing);
-    
-    if (newIsDrawing) {
-      if(map.current && !map.current.hasControl(draw.current)){
-        map.current.addControl(draw.current, 'top-left');
-      }
-      draw.current.changeMode('draw_polygon');
-    } else {
-        draw.current.deleteAll();
-        removeMeasurement();
-        if (map.current && map.current.hasControl(draw.current)) {
-            map.current.removeControl(draw.current);
-        }
-    }
-  }, [isDrawing, removeMeasurement]);
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery || !map.current || !mapboxgl.accessToken) return;
@@ -438,75 +335,75 @@ export default function MapExplorerPage() {
     geolocateControl.current?.trigger();
   }, [toast]);
 
+  const toggle3D = () => {
+    setIs3D(prev => {
+      const newState = !prev;
+      setMapTerrain(newState);
+      return newState;
+    });
+  };
+
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-        <Button 
-            variant="outline" 
-            size="icon" 
-            className="absolute top-4 right-4 z-10 rounded-full shadow-lg"
-            onClick={triggerGeolocation}
-         >
-            <LocateFixed />
-        </Button>
-        <Drawer>
-            <DrawerContent>
-                <ScrollArea className="h-full">
-                    <div className="mx-auto w-full max-w-md">
-                        <DrawerHeader>
-                            <DrawerTitle>Map Explorer</DrawerTitle>
-                            <DrawerDescription>Explore, draw, and measure on the map.</DrawerDescription>
-                        </DrawerHeader>
-                        <div className="p-4 pb-0 space-y-4">
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    id="search"
-                                    placeholder="Find a location..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                />
-                                <Button onClick={handleSearch} size="icon" variant="outline" className="shrink-0">
-                                    <Search />
-                                </Button>
-                            </div>
-                            <Separator />
-                             <div className="grid grid-cols-2 gap-4">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between">
-                                        <span>{mapStyles.find(s => s.style === currentStyle)?.name}</span>
-                                        <Layers className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-56">
-                                        {mapStyles.map((style) => (
-                                        <DropdownMenuItem key={style.name} onSelect={() => handleSwitchStyle(style.style)}>
-                                            {style.name}
-                                        </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                                <Button variant={isDrawing ? "default" : "outline"} onClick={handleToggleDrawing}>
-                                    <PenTool />
-                                    <span>{isDrawing ? 'Exit Drawing' : 'Draw on Map'}</span>
-                                </Button>
-                                <Button variant={isRotating ? "default" : "outline"} onClick={handleToggleRotation}>
-                                    <RotateCw className={isRotating ? 'animate-spin' : ''}/>
-                                    <span>{isRotating ? 'Stop Rotation' : 'Rotate Camera'}</span>
-                                </Button>
-                             </div>
-                        </div>
-                        <DrawerFooter>
-                            <Button onClick={handleDownloadMap}>
-                                <Download />
-                                Download Map
-                            </Button>
-                        </DrawerFooter>
-                    </div>
-                </ScrollArea>
-            </DrawerContent>
-        </Drawer>
+        
+        <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
+            <Button 
+                variant="outline" 
+                className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm text-foreground w-auto h-auto p-2.5 text-sm font-semibold"
+                onClick={toggle3D}
+             >
+                {is3D ? '2D' : '3D'}
+            </Button>
+            <div className="flex flex-col rounded-full shadow-lg bg-background/80 backdrop-blur-sm overflow-hidden">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="w-10 h-10 rounded-none">
+                            <Globe className="h-5 w-5"/>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="mr-2">
+                        {mapStyles.map((style) => (
+                        <DropdownMenuItem key={style.name} onSelect={() => handleSwitchStyle(style.style)}>
+                            {style.name}
+                        </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                <div className="w-full h-[1px] bg-border" />
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="w-10 h-10 rounded-none"
+                    onClick={triggerGeolocation}
+                >
+                    <ArrowUp className="h-5 w-5"/>
+                </Button>
+            </div>
+        </div>
+
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[95%] max-w-md">
+            <div className="flex h-14 items-center gap-2 rounded-full bg-background/80 p-2 shadow-lg backdrop-blur-sm">
+                <Search className="ml-3 shrink-0 text-muted-foreground" />
+                <Input
+                    id="search"
+                    placeholder="Search Apple Maps"
+                    className="flex-grow bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <Button variant="ghost" size="icon" className="rounded-full shrink-0">
+                    <Mic />
+                </Button>
+                <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
+                    <AvatarFallback>CN</AvatarFallback>
+                </Avatar>
+            </div>
+        </div>
     </div>
   );
 }
+
+    
