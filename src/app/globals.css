@@ -34,7 +34,7 @@ body {
 	animation: pulse 2s infinite;
 }
 
-.mapboxgl-ctrl-bottom-right {
+.mapboxgl-ctrl-top-right {
   display: none;
 }
 
