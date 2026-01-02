@@ -9,7 +9,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Globe, ArrowUp, Search, PenTool, Trash2, Combine, Minus, Dot, Route } from 'lucide-react';
+import { Globe, ArrowUp, Search, PenTool, Trash2, Combine, Minus, Dot, Route, MapPin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -46,6 +46,7 @@ export default function MapExplorerPage() {
   const [currentStyle, setCurrentStyle] = useState(mapStyles[0].style);
   const measurementPopup = useRef<mapboxgl.Popup | null>(null);
   const searchMarker = useRef<mapboxgl.Marker | null>(null);
+  const droppedPin = useRef<mapboxgl.Marker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const geolocateControl = useRef<mapboxgl.GeolocateControl | null>(null);
   const [is3D, setIs3D] = useState(true);
@@ -55,6 +56,13 @@ export default function MapExplorerPage() {
     if (measurementPopup.current) {
       measurementPopup.current.remove();
       measurementPopup.current = null;
+    }
+  }, []);
+
+  const removeDroppedPin = useCallback(() => {
+    if (droppedPin.current) {
+        droppedPin.current.remove();
+        droppedPin.current = null;
     }
   }, []);
   
@@ -127,6 +135,28 @@ export default function MapExplorerPage() {
     }
   }, []);
 
+  const handleMapClickForPin = useCallback((e: mapboxgl.MapLayerMouseEvent) => {
+    if (map.current) {
+        removeDroppedPin();
+        droppedPin.current = new mapboxgl.Marker({ color: '#E54E4E' })
+            .setLngLat(e.lngLat)
+            .addTo(map.current);
+        // Deactivate pin drop mode
+        map.current.getCanvas().style.cursor = '';
+        map.current.off('click', handleMapClickForPin);
+    }
+  }, [removeDroppedPin]);
+
+  const activateDropPinMode = useCallback(() => {
+    if (map.current) {
+        if (draw.current) {
+            draw.current.changeMode('simple_select');
+        }
+        map.current.getCanvas().style.cursor = 'crosshair';
+        map.current.on('click', handleMapClickForPin);
+    }
+  }, [handleMapClickForPin]);
+  
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     if (!mapboxgl.accessToken) {
@@ -214,14 +244,16 @@ export default function MapExplorerPage() {
       mapInstance.off('draw.update', handleDrawEvents);
       mapInstance.off('draw.selectionchange', handleDrawEvents);
       mapInstance.off('draw.delete', removeMeasurement);
+      mapInstance.off('click', handleMapClickForPin);
       
       removeMeasurement();
+      removeDroppedPin();
       if (map.current) {
         map.current.remove();
         map.current = null;
       }
     }
-  }, []);
+  }, [is3D, currentStyle, handleDrawEvents, removeMeasurement, setMapTerrain, toast, handleMapClickForPin, removeDroppedPin]);
 
   useEffect(() => {
     if (directions.current) {
@@ -289,18 +321,7 @@ export default function MapExplorerPage() {
     }
     
     if (geolocateControl.current) {
-      // Check if geolocation is already active to avoid re-triggering issues
-      const geolocateButton = mapContainer.current?.querySelector('.mapboxgl-ctrl-geolocate');
-      const isGeolocateActive = geolocateButton?.classList.contains('mapboxgl-ctrl-geolocate-active');
-      
-      if (!isGeolocateActive) {
-          geolocateControl.current.trigger();
-      } else {
-          // If already active, we can just fly to the user's location if we have it.
-          // This part requires more complex state management of user's location.
-          // For now, triggering should be fine.
-          geolocateControl.current.trigger();
-      }
+      geolocateControl.current.trigger();
     }
   }, [toast]);
 
@@ -313,17 +334,22 @@ export default function MapExplorerPage() {
   }, [setMapTerrain]);
 
   const setDrawMode = useCallback((mode: string) => {
+    if (map.current) {
+        map.current.getCanvas().style.cursor = '';
+        map.current.off('click', handleMapClickForPin);
+    }
     if (draw.current) {
       draw.current.changeMode(mode);
     }
-  }, []);
+  }, [handleMapClickForPin]);
 
   const deleteFeatures = useCallback(() => {
     if (draw.current) {
       draw.current.deleteAll();
       removeMeasurement();
+      removeDroppedPin();
     }
-  }, [removeMeasurement]);
+  }, [removeMeasurement, removeDroppedPin]);
 
   const toggleDirections = useCallback(() => {
     setDirectionsVisible(prev => !prev);
@@ -376,6 +402,10 @@ export default function MapExplorerPage() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="mr-2">
+                        <DropdownMenuItem onSelect={activateDropPinMode}>
+                            <MapPin className="mr-2 h-4 w-4" />
+                            <span>Map Pin</span>
+                        </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => setDrawMode('draw_point')}>
                             <Dot className="mr-2 h-4 w-4" />
                             <span>Point</span>
