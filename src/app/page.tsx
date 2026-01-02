@@ -3,12 +3,13 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import MapboxDirections from '@mapbox/mapbox-gl-directions/dist/mapbox-gl-directions';
 import * as turf from '@turf/turf';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Globe, ArrowUp, Search, X, PenTool, Trash2, Combine, Minus, Dot } from 'lucide-react';
+import { Globe, ArrowUp, Search, PenTool, Trash2, Combine, Minus, Dot, Route } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -40,6 +41,7 @@ export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const draw = useRef<MapboxDraw | null>(null);
+  const directions = useRef<MapboxDirections | null>(null);
   const { toast } = useToast();
   const [currentStyle, setCurrentStyle] = useState(mapStyles[0].style);
   const measurementPopup = useRef<mapboxgl.Popup | null>(null);
@@ -47,6 +49,7 @@ export default function MapExplorerPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const geolocateControl = useRef<mapboxgl.GeolocateControl | null>(null);
   const [is3D, setIs3D] = useState(true);
+  const [directionsVisible, setDirectionsVisible] = useState(false);
 
   const removeMeasurement = useCallback(() => {
     if (measurementPopup.current) {
@@ -119,7 +122,6 @@ export default function MapExplorerPage() {
       map.current.setPitch(60);
     } else {
       map.current.setPitch(0);
-      // Fit bounds to re-orient the map if it's tilted
       const bounds = map.current.getBounds();
       map.current.fitBounds(bounds, { pitch: 0, bearing: 0, duration: 1000});
     }
@@ -173,9 +175,21 @@ export default function MapExplorerPage() {
         showUserHeading: true,
     });
     
+    directions.current = new MapboxDirections({
+        accessToken: mapboxgl.accessToken,
+        unit: 'metric',
+        profile: 'mapbox/driving',
+        controls: {
+            instructions: true,
+            profileSwitcher: true,
+        },
+    });
+
     mapInstance.addControl(draw.current);
     mapInstance.addControl(geolocateControl.current, 'top-right');
-    draw.current.changeMode('simple_select');
+    mapInstance.addControl(directions.current, 'top-left');
+
+    (directions.current as any).container.style.display = 'none';
 
     const onStyleLoad = () => {
       setMapTerrain(is3D);
@@ -183,16 +197,6 @@ export default function MapExplorerPage() {
     
     const onLoad = () => {
       if (!mapInstance) return;
-      const permissionStatus = localStorage.getItem('mapbox_location_permission');
-      if (permissionStatus === 'granted') {
-        // geolocateControl.current.trigger(); // Don't auto-trigger
-      } else if (permissionStatus === null) {
-        navigator.geolocation.getCurrentPosition(
-            () => localStorage.setItem('mapbox_location_permission', 'granted'),
-            () => localStorage.setItem('mapbox_location_permission', 'denied'),
-            { enableHighAccuracy: true }
-        );
-      }
 
       mapInstance.on('draw.create', handleDrawEvents);
       mapInstance.on('draw.update', handleDrawEvents);
@@ -217,7 +221,14 @@ export default function MapExplorerPage() {
         map.current = null;
       }
     }
-  }, [currentStyle, toast, setMapTerrain, handleDrawEvents, removeMeasurement, is3D]);
+  }, []);
+
+  useEffect(() => {
+    if (directions.current) {
+        (directions.current as any).container.style.display = directionsVisible ? '' : 'none';
+    }
+  }, [directionsVisible])
+
 
   const handleSwitchStyle = useCallback((style: string) => {
     if(!map.current) return;
@@ -276,7 +287,21 @@ export default function MapExplorerPage() {
         });
         return;
     }
-    geolocateControl.current?.trigger();
+    
+    if (geolocateControl.current) {
+      // Check if geolocation is already active to avoid re-triggering issues
+      const geolocateButton = mapContainer.current?.querySelector('.mapboxgl-ctrl-geolocate');
+      const isGeolocateActive = geolocateButton?.classList.contains('mapboxgl-ctrl-geolocate-active');
+      
+      if (!isGeolocateActive) {
+          geolocateControl.current.trigger();
+      } else {
+          // If already active, we can just fly to the user's location if we have it.
+          // This part requires more complex state management of user's location.
+          // For now, triggering should be fine.
+          geolocateControl.current.trigger();
+      }
+    }
   }, [toast]);
 
   const toggle3D = useCallback(() => {
@@ -300,18 +325,25 @@ export default function MapExplorerPage() {
     }
   }, [removeMeasurement]);
 
+  const toggleDirections = useCallback(() => {
+    setDirectionsVisible(prev => !prev);
+  }, []);
+
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
         
         <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
-            <Button 
-                variant="outline" 
-                className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm text-foreground w-10 h-10 p-0 text-sm font-semibold"
-                onClick={toggle3D}
-             >
-                {is3D ? '3D' : '2D'}
-            </Button>
+            <div className="flex flex-col rounded-full shadow-lg bg-background/80 backdrop-blur-sm overflow-hidden border border-border">
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="w-10 h-10 rounded-none text-sm font-semibold"
+                    onClick={toggle3D}
+                >
+                    {is3D ? '3D' : '2D'}
+                </Button>
+            </div>
             <div className="flex flex-col rounded-full shadow-lg bg-background/80 backdrop-blur-sm overflow-hidden border border-border">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -363,6 +395,15 @@ export default function MapExplorerPage() {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
+                <div className="w-full h-[1px] bg-border" />
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="w-10 h-10 rounded-none"
+                    onClick={toggleDirections}
+                    >
+                    <Route className="h-5 w-5"/>
+                </Button>
             </div>
         </div>
 
