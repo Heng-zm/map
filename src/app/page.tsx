@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useRef, useEffect, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
+import mapboxgl, { GeolocateControl } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 
@@ -43,6 +43,20 @@ export default function MapExplorerPage() {
       preserveDrawingBuffer: true,
     });
     map.current = mapInstance;
+
+    const geolocate = new GeolocateControl({
+      positionOptions: {
+        enableHighAccuracy: true
+      },
+      trackUserLocation: true,
+      showUserLocation: true
+    });
+
+    mapInstance.addControl(geolocate);
+
+    mapInstance.on('load', () => {
+      geolocate.trigger();
+    });
 
     const onStyleLoad = () => {
       if(!map.current) return;
