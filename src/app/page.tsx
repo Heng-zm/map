@@ -9,15 +9,22 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Globe, ArrowUp, Search, PenTool, Trash2, Combine, Minus, Dot, Route, MapPin } from 'lucide-react';
+import { Globe, ArrowUp, Search, PenTool, Trash2, Combine, Minus, Dot, Route, MapPin, Layers, Pencil, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu"
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarTrigger,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarSeparator,
+  SidebarInset,
+} from '@/components/ui/sidebar';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -30,9 +37,9 @@ const initialCenter: [number, number] = [104.9282, 11.5564];
 const initialZoom = 13;
 
 const mapStyles = [
-  { name: 'Standard', style: 'mapbox://styles/mapbox/standard' },
-  { name: 'Outdoors', style: 'mapbox://styles/mapbox/outdoors-v12' },
-  { name: 'Satellite', style: 'mapbox://styles/mapbox/satellite-streets-v12' },
+  { name: 'Standard', style: 'mapbox://styles/mapbox/standard', icon: <Layers className="h-4 w-4" /> },
+  { name: 'Outdoors', style: 'mapbox://styles/mapbox/outdoors-v12', icon: <Globe className="h-4 w-4" /> },
+  { name: 'Satellite', style: 'mapbox://styles/mapbox/satellite-streets-v12', icon: <Star className="h-4 w-4" /> },
 ];
 
 export default function MapExplorerPage() {
@@ -225,6 +232,7 @@ export default function MapExplorerPage() {
     const directionsContainer = (directions.current as any)?.container;
     if (directionsContainer) {
       directionsContainer.style.display = 'none';
+      directionsContainer.classList.add('shadow-lg', 'rounded-lg', 'border', 'border-border');
     }
 
 
@@ -260,7 +268,7 @@ export default function MapExplorerPage() {
         map.current = null;
       }
     }
-  }, []);
+  }, [currentStyle, is3D, toast, handleDrawEvents, removeMeasurement, handleMapClickForPin, removeDroppedPin, setMapTerrain]);
 
   useEffect(() => {
     if (directions.current) {
@@ -364,107 +372,111 @@ export default function MapExplorerPage() {
   const toggleDirections = useCallback(() => {
     setDirectionsVisible(prev => !prev);
   }, []);
-
+  
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
-        <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-        
-        <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
-            <div className="flex flex-col rounded-full shadow-lg bg-background/80 backdrop-blur-sm overflow-hidden border border-border">
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="w-10 h-10 rounded-none text-sm font-semibold"
-                    onClick={toggle3D}
-                >
-                    {is3D ? '3D' : '2D'}
-                </Button>
+      <SidebarProvider>
+        <Sidebar>
+          <SidebarHeader>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Map Explorer</h2>
+              <SidebarTrigger />
             </div>
-            <div className="flex flex-col rounded-full shadow-lg bg-background/80 backdrop-blur-sm overflow-hidden border border-border">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="w-10 h-10 rounded-none">
-                            <Globe className="h-5 w-5"/>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="mr-2">
-                        {mapStyles.map((style) => (
-                        <DropdownMenuItem key={style.name} onSelect={() => handleSwitchStyle(style.style)}>
-                            {style.name}
-                        </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <div className="w-full h-[1px] bg-border" />
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="w-10 h-10 rounded-none"
-                    onClick={triggerGeolocation}
-                >
-                    <ArrowUp className="h-5 w-5"/>
-                </Button>
-                <div className="w-full h-[1px] bg-border" />
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                         <Button variant="ghost" size="icon" className="w-10 h-10 rounded-none">
-                            <PenTool className="h-5 w-5"/>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="mr-2">
-                        <DropdownMenuItem onSelect={activateDropPinMode}>
-                            <MapPin className="mr-2 h-4 w-4" />
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search..." 
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              />
+            </div>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarGroup>
+                <SidebarGroupLabel>Map Styles</SidebarGroupLabel>
+                <SidebarMenu>
+                    {mapStyles.map((style) => (
+                    <SidebarMenuItem key={style.name}>
+                        <SidebarMenuButton 
+                          onClick={() => handleSwitchStyle(style.style)} 
+                          isActive={currentStyle === style.style}
+                          tooltip={style.name}
+                        >
+                            {style.icon}
+                            <span>{style.name}</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    ))}
+                </SidebarMenu>
+            </SidebarGroup>
+            <SidebarSeparator />
+            <SidebarGroup>
+                <SidebarGroupLabel>Drawing Tools</SidebarGroupLabel>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton tooltip="Map Pin" onClick={activateDropPinMode}>
+                            <MapPin/>
                             <span>Map Pin</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setDrawMode('draw_point')}>
-                            <Dot className="mr-2 h-4 w-4" />
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton tooltip="Point" onClick={() => setDrawMode('draw_point')}>
+                            <Dot />
                             <span>Point</span>
-                        </DropdownMenuItem>
-                         <DropdownMenuItem onSelect={() => setDrawMode('draw_line_string')}>
-                            <Minus className="mr-2 h-4 w-4" />
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton tooltip="Line" onClick={() => setDrawMode('draw_line_string')}>
+                            <Minus />
                             <span>Line</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setDrawMode('draw_polygon')}>
-                            <Combine className="mr-2 h-4 w-4" />
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton tooltip="Polygon" onClick={() => setDrawMode('draw_polygon')}>
+                            <Combine />
                             <span>Polygon</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={deleteFeatures}>
-                            <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton tooltip="Delete All" onClick={deleteFeatures}>
+                            <Trash2 className="text-destructive" />
                             <span className="text-destructive">Delete All</span>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <div className="w-full h-[1px] bg-border" />
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="w-10 h-10 rounded-none"
-                    onClick={toggleDirections}
-                    >
-                    <Route className="h-5 w-5"/>
-                </Button>
-            </div>
-        </div>
-
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[95%] max-w-md">
-            <div className="flex h-14 items-center gap-2 rounded-full bg-background/80 p-2 shadow-lg backdrop-blur-sm border border-border">
-                <Search className="ml-3 shrink-0 text-muted-foreground" />
-                <Input
-                    id="search"
-                    placeholder="Search for a place or address"
-                    className="flex-grow bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                />
-                <Button variant="ghost" size="icon" className="rounded-full shrink-0" onClick={handleSearch}>
-                    <Search />
-                </Button>
-            </div>
-        </div>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </SidebarGroup>
+            <SidebarSeparator />
+            <SidebarGroup>
+                <SidebarGroupLabel>Actions</SidebarGroupLabel>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton tooltip="Directions" onClick={toggleDirections} isActive={directionsVisible}>
+                            <Route />
+                            <span>Directions</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton tooltip="Toggle 3D" onClick={toggle3D} isActive={is3D}>
+                            {is3D ? '3D' : '2D'}
+                            <span>{is3D ? '3D View' : '2D View'}</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                     <SidebarMenuItem>
+                        <SidebarMenuButton tooltip="Current Location" onClick={triggerGeolocation}>
+                            <ArrowUp />
+                            <span>Current Location</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </SidebarGroup>
+          </SidebarContent>
+        </Sidebar>
+        <SidebarInset>
+            <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
+        </SidebarInset>
+      </SidebarProvider>
     </div>
   );
 }
-
-    
