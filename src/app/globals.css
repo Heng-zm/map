@@ -12,7 +12,7 @@ body {
   font-family: var(--font-body);
 }
 
-.mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right {
+.mapboxgl-ctrl-bottom-left {
     display: none;
 }
 
