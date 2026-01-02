@@ -183,14 +183,14 @@ export default function MapExplorerPage() {
         point: true,
       },
       styles: [
-        { "id": "gl-draw-polygon-fill-active", "type": "fill", "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]], "paint": { "fill-color": "hsl(var(--primary))", "fill-opacity": 0.1 } },
-        { "id": "gl-draw-polygon-stroke-active", "type": "line", "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(var(--primary))", "line-dasharray": [0.2, 2], "line-width": 2 } },
-        { "id": "gl-draw-line-active", "type": "line", "filter": ["all", ["==", "$type", "LineString"], ["==", "active", "true"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(var(--primary))", "line-dasharray": [0.2, 2], "line-width": 2 } },
-        { "id": "gl-draw-polygon-and-line-vertex-stroke-active", "type": "circle", "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]], "paint": { "circle-radius": 5, "circle-color": "hsl(var(--primary))" } },
+        { "id": "gl-draw-polygon-fill-active", "type": "fill", "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]], "paint": { "fill-color": "hsl(211, 63%, 54%)", "fill-opacity": 0.1 } },
+        { "id": "gl-draw-polygon-stroke-active", "type": "line", "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-dasharray": [0.2, 2], "line-width": 2 } },
+        { "id": "gl-draw-line-active", "type": "line", "filter": ["all", ["==", "$type", "LineString"], ["==", "active", "true"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-dasharray": [0.2, 2], "line-width": 2 } },
+        { "id": "gl-draw-polygon-and-line-vertex-stroke-active", "type": "circle", "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]], "paint": { "circle-radius": 5, "circle-color": "hsl(211, 63%, 54%)" } },
         { "id": "gl-draw-polygon-and-line-vertex-active", "type": "circle", "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]], "paint": { "circle-radius": 3, "circle-color": "#FFF" } },
-        { "id": "gl-draw-polygon-fill-inactive", "type": "fill", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "paint": { "fill-color": "hsl(var(--primary))", "fill-outline-color": "hsl(var(--primary))", "fill-opacity": 0.1 } },
-        { "id": "gl-draw-polygon-stroke-inactive", "type": "line", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(var(--primary))", "line-width": 2 } },
-        { "id": "gl-draw-line-inactive", "type": "line", "filter": ["all", ["==", "active", "false"], ["==", "$type", "LineString"], ["!=", "mode", "static"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(var(--primary))", "line-width": 2 } },
+        { "id": "gl-draw-polygon-fill-inactive", "type": "fill", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "paint": { "fill-color": "hsl(211, 63%, 54%)", "fill-outline-color": "hsl(211, 63%, 54%)", "fill-opacity": 0.1 } },
+        { "id": "gl-draw-polygon-stroke-inactive", "type": "line", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-width": 2 } },
+        { "id": "gl-draw-line-inactive", "type": "line", "filter": ["all", ["==", "active", "false"], ["==", "$type", "LineString"], ["!=", "mode", "static"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-width": 2 } },
       ]
     });
     
