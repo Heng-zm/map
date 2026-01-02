@@ -38,6 +38,16 @@ body {
   display: none;
 }
 
+.mapboxgl-ctrl.mapboxgl-ctrl-group {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.mapboxgl-ctrl-top-left {
+  display: none;
+}
+
+
 @keyframes pulse {
 	0% {
 		transform: translate(-50%, -50%) scale(1);

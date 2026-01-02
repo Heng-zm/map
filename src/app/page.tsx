@@ -2,7 +2,8 @@
 'use client';
 import React, { useRef, useEffect, useState } from 'react';
 import Image from 'next/image';
-import mapboxgl, { GeolocateControl, Marker } from 'mapbox-gl';
+import mapboxgl, { GeolocateControl, Marker, LngLatLike } from 'mapbox-gl';
+import MapboxDirections from '@mapbox/mapbox-gl-directions/dist/mapbox-gl-directions';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -32,6 +33,8 @@ export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const marker = useRef<Marker | null>(null);
+  const directionsControl = useRef<MapboxDirections | null>(null);
+  const userLocation = useRef<[number, number] | null>(null);
   const { toast } = useToast();
 
   const [locationDetails, setLocationDetails] = useState<{lng: number, lat: number} | null>(null);
@@ -60,7 +63,7 @@ export default function MapExplorerPage() {
       preserveDrawingBuffer: true,
     });
     map.current = mapInstance;
-
+    
     const geolocate = new GeolocateControl({
       positionOptions: {
         enableHighAccuracy: true
@@ -71,8 +74,25 @@ export default function MapExplorerPage() {
     
     mapInstance.addControl(geolocate);
 
+    geolocate.on('geolocate', (e) => {
+      const pos = e.coords;
+      userLocation.current = [pos.longitude, pos.latitude];
+    });
+
     mapInstance.on('load', () => {
       geolocate.trigger();
+
+      const directions = new MapboxDirections({
+        accessToken: mapboxgl.accessToken,
+        controls: {
+          inputs: false,
+          instructions: false,
+          profileSwitcher: false,
+        },
+        styles: [] // Use custom styles
+      });
+      mapInstance.addControl(directions, 'top-left');
+      directionsControl.current = directions;
     });
     
     const onMapClick = (e: mapboxgl.MapMouseEvent & {
@@ -80,6 +100,9 @@ export default function MapExplorerPage() {
     }) => {
       if (marker.current) {
         marker.current.remove();
+      }
+      if (directionsControl.current) {
+        directionsControl.current.removeRoutes();
       }
       
       const newMarker = new Marker().setLngLat(e.lngLat).addTo(mapInstance);
@@ -136,9 +159,31 @@ export default function MapExplorerPage() {
       marker.current.remove();
       marker.current = null;
     }
+    if (directionsControl.current) {
+      directionsControl.current.removeRoutes();
+    }
     setLocationDetails(null);
     setAddressDetails(null);
   };
+
+  const handleGetDirections = () => {
+    if (!userLocation.current) {
+      toast({
+        variant: "destructive",
+        title: "User location not available",
+        description: "Please enable location services to get directions.",
+      });
+      return;
+    }
+
+    if (!locationDetails) return;
+
+    if (directionsControl.current) {
+      directionsControl.current.setOrigin(userLocation.current);
+      directionsControl.current.setDestination([locationDetails.lng, locationDetails.lat]);
+    }
+    setIsDrawerOpen(false); // Close drawer after setting directions
+  }
 
 
   return (
@@ -179,7 +224,7 @@ export default function MapExplorerPage() {
                     <p><strong>Longitude:</strong> {locationDetails.lng.toFixed(6)}</p>
                   </div>
                   <SheetFooter className="flex-row gap-2 pt-4">
-                    <Button variant="outline" className="flex-1">Get Directions</Button>
+                    <Button variant="outline" className="flex-1" onClick={handleGetDirections}>Get Directions</Button>
                     <Button className="flex-1">Save Place</Button>
                   </SheetFooter>
                 </div>
