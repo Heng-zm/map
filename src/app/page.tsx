@@ -18,8 +18,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -220,9 +218,15 @@ export default function MapExplorerPage() {
 
     mapInstance.addControl(draw.current);
     mapInstance.addControl(geolocateControl.current, 'top-right');
-    mapInstance.addControl(directions.current, 'top-left');
+    if (directions.current) {
+      mapInstance.addControl(directions.current, 'top-left');
+    }
 
-    (directions.current as any).container.style.display = 'none';
+    const directionsContainer = (directions.current as any)?.container;
+    if (directionsContainer) {
+      directionsContainer.style.display = 'none';
+    }
+
 
     const onStyleLoad = () => {
       setMapTerrain(is3D);
@@ -256,11 +260,14 @@ export default function MapExplorerPage() {
         map.current = null;
       }
     }
-  }, [is3D, currentStyle, handleDrawEvents, removeMeasurement, setMapTerrain, toast, handleMapClickForPin, removeDroppedPin]);
+  }, []);
 
   useEffect(() => {
     if (directions.current) {
-        (directions.current as any).container.style.display = directionsVisible ? '' : 'none';
+        const directionsContainer = (directions.current as any).container;
+        if(directionsContainer) {
+          directionsContainer.style.display = directionsVisible ? '' : 'none';
+        }
     }
   }, [directionsVisible])
 
@@ -445,7 +452,7 @@ export default function MapExplorerPage() {
                 <Search className="ml-3 shrink-0 text-muted-foreground" />
                 <Input
                     id="search"
-                    placeholder="Search Apple Maps"
+                    placeholder="Search for a place or address"
                     className="flex-grow bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -454,12 +461,10 @@ export default function MapExplorerPage() {
                 <Button variant="ghost" size="icon" className="rounded-full shrink-0" onClick={handleSearch}>
                     <Search />
                 </Button>
-                <Avatar className="h-10 w-10 shrink-0">
-                    <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
-                    <AvatarFallback>CN</AvatarFallback>
-                </Avatar>
             </div>
         </div>
     </div>
   );
 }
+
+    
