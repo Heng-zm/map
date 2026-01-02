@@ -281,15 +281,30 @@ export default function MapExplorerPage() {
         trackUserLocation: true,
         showUserHeading: true
     });
-    
-    mapInstance.addControl(geolocate, 'top-right');
 
     const onStyleLoad = () => {
       setMapTerrain();
     };
     
     const onLoad = () => {
-      geolocate.trigger();
+      mapInstance.addControl(geolocate, 'top-right');
+      
+      const permissionStatus = localStorage.getItem('mapbox_location_permission');
+
+      if (permissionStatus === 'granted') {
+        geolocate.trigger();
+      } else if (permissionStatus === null) {
+        // First visit, so we can ask
+        navigator.geolocation.getCurrentPosition(
+            () => { // Success
+                localStorage.setItem('mapbox_location_permission', 'granted');
+                geolocate.trigger();
+            },
+            () => { // Error (denied)
+                localStorage.setItem('mapbox_location_permission', 'denied');
+            }
+        );
+      } // If 'denied', we do nothing and don't ask again.
 
       mapInstance.on('draw.create', handleDrawEvents);
       mapInstance.on('draw.update', handleDrawEvents);
@@ -315,7 +330,7 @@ export default function MapExplorerPage() {
       mapInstance.remove();
       map.current = null;
     }
-  }, [currentStyle, toast, setMapTerrain, calculateAndShowMeasurement, removeMeasurement, handleDrawEvents]);
+  }, [currentStyle, setMapTerrain, calculateAndShowMeasurement, removeMeasurement, handleDrawEvents]);
 
   const handleToggleRotation = () => {
     if (isRotating) {
@@ -336,44 +351,18 @@ export default function MapExplorerPage() {
     const mapInstance = map.current;
     const container = mapContainer.current;
 
-    // Use a promise to handle the async nature of map rendering
-    new Promise<string>((resolve) => {
-        mapInstance.once('idle', () => {
-            const originalWidth = container.clientWidth;
-            const originalHeight = container.clientHeight;
-
-            const targetResolution = 3000;
-            const scale = originalWidth > originalHeight 
-                ? targetResolution / originalWidth
-                : targetResolution / originalHeight;
-
-            const newWidth = Math.round(originalWidth * scale);
-            const newHeight = Math.round(originalHeight * scale);
-
-            container.style.width = `${newWidth}px`;
-            container.style.height = `${newHeight}px`;
-            mapInstance.resize();
-
-            mapInstance.once('idle', () => {
-                const dataURL = mapInstance.getCanvas().toDataURL('image/png');
-                
-                // Restore original size
-                container.style.width = `${originalWidth}px`;
-                container.style.height = `${originalHeight}px`;
-                mapInstance.resize();
-                
-                mapInstance.once('idle', () => {
-                    resolve(dataURL);
-                });
-            });
-        });
-    }).then(dataURL => {
-        const link = document.createElement('a');
-        link.href = dataURL;
-        link.download = 'map-high-quality.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    mapInstance.once('idle', () => {
+      const dataURL = mapInstance.getCanvas().toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = 'map.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({
+        title: "Map downloaded",
+        description: "The map image has been saved."
+      });
     });
   };
   
@@ -381,7 +370,6 @@ export default function MapExplorerPage() {
     if(!map.current) return;
     
     setCurrentStyle(style);
-    // The map will be re-initialized by the useEffect hook
     const styleName = mapStyles.find(s => s.style === style)?.name;
     toast({
         title: "Map style changed",
