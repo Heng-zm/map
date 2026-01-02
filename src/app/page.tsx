@@ -2,16 +2,13 @@
 'use client';
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
-import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import MapboxDirections from '@mapbox/mapbox-gl-directions/dist/mapbox-gl-directions';
-import * as turf from '@turf/turf';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Globe, ArrowUp, Search, PenTool, Trash2, Combine, Minus, Dot, Route, MapPin, Layers, Star } from 'lucide-react';
+import { Globe, ArrowUp, Search, Route, Layers, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -32,78 +29,15 @@ const mapStyles = [
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const draw = useRef<MapboxDraw | null>(null);
   const directions = useRef<MapboxDirections | null>(null);
   const { toast } = useToast();
   const [currentStyle, setCurrentStyle] = useState(mapStyles[0].style);
-  const measurementPopup = useRef<mapboxgl.Popup | null>(null);
   const searchMarker = useRef<mapboxgl.Marker | null>(null);
-  const droppedPin = useRef<mapboxgl.Marker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const geolocateControl = useRef<mapboxgl.GeolocateControl | null>(null);
   const [is3D, setIs3D] = useState(true);
   const [directionsVisible, setDirectionsVisible] = useState(false);
-
-  const removeMeasurement = useCallback(() => {
-    if (measurementPopup.current) {
-      measurementPopup.current.remove();
-      measurementPopup.current = null;
-    }
-  }, []);
-
-  const removeDroppedPin = useCallback(() => {
-    if (droppedPin.current) {
-        droppedPin.current.remove();
-        droppedPin.current = null;
-    }
-  }, []);
   
-  const calculateAndShowMeasurement = useCallback((features: any[]) => {
-    removeMeasurement();
-    if (features.length === 0 || !map.current) return;
-  
-    const feature = features[0];
-    let measurementText = '';
-    let center: [number, number] | undefined;
-  
-    if (feature.geometry.type === 'Polygon') {
-      const area = turf.area(feature);
-      measurementText = `Area: ${(area / 1000000).toFixed(2)} km²`;
-      const centroid = turf.centroid(feature);
-      center = centroid.geometry.coordinates as [number, number];
-    } else if (feature.geometry.type === 'LineString') {
-      const length = turf.length(feature, { units: 'kilometers' });
-      measurementText = `Length: ${length.toFixed(2)} km`;
-      const centroid = turf.centroid(feature);
-      center = centroid.geometry.coordinates as [number, number];
-    }
-  
-    if (measurementText && center) {
-        const popupContent = document.createElement('div');
-        popupContent.className = 'bg-card text-card-foreground p-2 rounded text-sm relative shadow-md';
-        popupContent.innerHTML = `<span>${measurementText}</span>`;
-        
-        const closeButton = document.createElement('button');
-        closeButton.className = 'absolute top-0 right-0 p-1';
-        closeButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
-        closeButton.onclick = () => removeMeasurement();
-        popupContent.prepend(closeButton);
-
-        measurementPopup.current = new mapboxgl.Popup({ closeOnClick: false, closeButton: false, offset: 10 })
-            .setLngLat(center)
-            .setDOMContent(popupContent)
-            .addTo(map.current);
-    }
-  }, [removeMeasurement]);
-
-  const handleDrawEvents = useCallback((e: any) => {
-    if (e.features.length > 0) {
-      calculateAndShowMeasurement(e.features);
-    } else {
-      removeMeasurement();
-    }
-  }, [calculateAndShowMeasurement, removeMeasurement]);
-
   const setMapTerrain = useCallback((is3DEnabled: boolean) => {
     if(!map.current) return;
 
@@ -126,31 +60,6 @@ export default function MapExplorerPage() {
       map.current.fitBounds(bounds, { pitch: 0, bearing: 0, duration: 1000});
     }
   }, []);
-
-  const handleMapClickForPin = useCallback((e: mapboxgl.MapLayerMouseEvent) => {
-    if (map.current) {
-        removeDroppedPin();
-        const el = document.createElement('div');
-        el.className = 'custom-marker';
-
-        droppedPin.current = new mapboxgl.Marker(el)
-            .setLngLat(e.lngLat)
-            .addTo(map.current);
-        // Deactivate pin drop mode
-        map.current.getCanvas().style.cursor = '';
-        map.current.off('click', handleMapClickForPin);
-    }
-  }, [removeDroppedPin]);
-
-  const activateDropPinMode = useCallback(() => {
-    if (map.current) {
-        if (draw.current) {
-            draw.current.changeMode('simple_select');
-        }
-        map.current.getCanvas().style.cursor = 'crosshair';
-        map.current.on('click', handleMapClickForPin);
-    }
-  }, [handleMapClickForPin]);
   
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -174,26 +83,6 @@ export default function MapExplorerPage() {
     });
     map.current = mapInstance;
     
-    draw.current = new MapboxDraw({
-      displayControlsDefault: false,
-      controls: {
-        polygon: true,
-        trash: true,
-        line_string: true,
-        point: true,
-      },
-      styles: [
-        { "id": "gl-draw-polygon-fill-active", "type": "fill", "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]], "paint": { "fill-color": "hsl(211, 63%, 54%)", "fill-opacity": 0.1 } },
-        { "id": "gl-draw-polygon-stroke-active", "type": "line", "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-dasharray": [0.2, 2], "line-width": 2 } },
-        { "id": "gl-draw-line-active", "type": "line", "filter": ["all", ["==", "$type", "LineString"], ["==", "active", "true"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-dasharray": [0.2, 2], "line-width": 2 } },
-        { "id": "gl-draw-polygon-and-line-vertex-stroke-active", "type": "circle", "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]], "paint": { "circle-radius": 5, "circle-color": "hsl(211, 63%, 54%)" } },
-        { "id": "gl-draw-polygon-and-line-vertex-active", "type": "circle", "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]], "paint": { "circle-radius": 3, "circle-color": "#FFF" } },
-        { "id": "gl-draw-polygon-fill-inactive", "type": "fill", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "paint": { "fill-color": "hsl(211, 63%, 54%)", "fill-outline-color": "#3b82f6", "fill-opacity": 0.1 } },
-        { "id": "gl-draw-polygon-stroke-inactive", "type": "line", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-width": 2 } },
-        { "id": "gl-draw-line-inactive", "type": "line", "filter": ["all", ["==", "active", "false"], ["==", "$type", "LineString"], ["!=", "mode", "static"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-width": 2 } },
-      ]
-    });
-    
     geolocateControl.current = new mapboxgl.GeolocateControl({
         positionOptions: { enableHighAccuracy: true },
         trackUserLocation: true,
@@ -210,7 +99,6 @@ export default function MapExplorerPage() {
         },
     });
 
-    mapInstance.addControl(draw.current);
     if (directions.current) {
       mapInstance.addControl(directions.current, 'top-left');
     }
@@ -221,40 +109,20 @@ export default function MapExplorerPage() {
       directionsContainer.classList.add('shadow-lg', 'rounded-lg', 'border', 'border-border');
     }
 
-
     const onStyleLoad = () => {
       setMapTerrain(is3D);
     };
-    
-    const onLoad = () => {
-      if (!mapInstance) return;
-
-      mapInstance.on('draw.create', handleDrawEvents);
-      mapInstance.on('draw.update', handleDrawEvents);
-      mapInstance.on('draw.selectionchange', handleDrawEvents);
-      mapInstance.on('draw.delete', removeMeasurement);
-    };
 
     mapInstance.on('style.load', onStyleLoad);
-    mapInstance.on('load', onLoad);
 
     return () => {
       mapInstance.off('style.load', onStyleLoad);
-      mapInstance.off('load', onLoad);
-      mapInstance.off('draw.create', handleDrawEvents);
-      mapInstance.off('draw.update', handleDrawEvents);
-      mapInstance.off('draw.selectionchange', handleDrawEvents);
-      mapInstance.off('draw.delete', removeMeasurement);
-      mapInstance.off('click', handleMapClickForPin);
-      
-      removeMeasurement();
-      removeDroppedPin();
       if (map.current) {
         map.current.remove();
         map.current = null;
       }
     }
-  }, [toast, is3D, currentStyle, handleDrawEvents, removeMeasurement, handleMapClickForPin, removeDroppedPin, setMapTerrain]);
+  }, [toast, is3D, currentStyle, setMapTerrain]);
 
   useEffect(() => {
     if (directions.current) {
@@ -357,24 +225,6 @@ export default function MapExplorerPage() {
     });
   }, [setMapTerrain]);
 
-  const setDrawMode = useCallback((mode: string) => {
-    if (map.current) {
-        map.current.getCanvas().style.cursor = '';
-        map.current.off('click', handleMapClickForPin);
-    }
-    if (draw.current) {
-      draw.current.changeMode(mode);
-    }
-  }, [handleMapClickForPin]);
-
-  const deleteFeatures = useCallback(() => {
-    if (draw.current) {
-      draw.current.deleteAll();
-      removeMeasurement();
-      removeDroppedPin();
-    }
-  }, [removeMeasurement, removeDroppedPin]);
-
   const toggleDirections = useCallback(() => {
     setDirectionsVisible(prev => !prev);
   }, []);
@@ -414,37 +264,6 @@ export default function MapExplorerPage() {
                                 <span>{style.name}</span>
                             </DropdownMenuItem>
                         ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-md h-10 w-10">
-                            <PenTool />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={activateDropPinMode}>
-                            <MapPin/>
-                            <span>Map Pin</span>
-                        </DropdownMenuItem>
-                         <DropdownMenuItem onClick={() => setDrawMode('draw_point')}>
-                            <Dot />
-                            <span>Point</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setDrawMode('draw_line_string')}>
-                            <Minus />
-                            <span>Line</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setDrawMode('draw_polygon')}>
-                            <Combine />
-                            <span>Polygon</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={deleteFeatures} className="text-destructive">
-                            <Trash2 />
-                            <span>Delete All</span>
-                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
                 
