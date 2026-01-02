@@ -27,6 +27,7 @@ body {
     min-width: 100% !important;
     max-width: 100% !important;
     background-color: transparent !important;
+    box-shadow: none !important;
 }
 
 .mapbox-directions-origin, .mapbox-directions-destination {
@@ -70,7 +71,7 @@ body {
     left: 0.75rem !important;
 }
 
-.mapbox-directions-profile {
+.mapbox-directions-profile, .mapbox-directions-reverse {
     display: none !important;
 }
 
