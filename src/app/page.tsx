@@ -8,7 +8,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download, RotateCw, PenTool, Search, Compass, Layers, PanelTopOpen, LocateFixed } from 'lucide-react';
+import { Download, RotateCw, PenTool, Search, Layers, PanelTopOpen, LocateFixed } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerTrigger } from "@/components/drawer";
@@ -148,7 +148,7 @@ export default function MapExplorerPage() {
         return;
     }
 
-    map.current = new mapboxgl.Map({
+    const mapInstance = new mapboxgl.Map({
       container: mapContainer.current,
       style: currentStyle,
       center: initialCenter,
@@ -157,6 +157,7 @@ export default function MapExplorerPage() {
       bearing: 0,
       preserveDrawingBuffer: true,
     });
+    map.current = mapInstance;
     
     draw.current = new MapboxDraw({
       displayControlsDefault: false,
@@ -261,15 +262,13 @@ export default function MapExplorerPage() {
       ]
     });
     
-    const mapInstance = map.current;
-    
     geolocateControl.current = new mapboxgl.GeolocateControl({
         positionOptions: {
             enableHighAccuracy: true
         },
         trackUserLocation: true,
         showUserHeading: true,
-        showUserLocation: false, // We hide the default button
+        showUserLocation: false, 
     });
 
     const onStyleLoad = () => {
@@ -277,24 +276,25 @@ export default function MapExplorerPage() {
     };
     
     const onLoad = () => {
-      mapInstance.addControl(geolocateControl.current!, 'top-right');
+      if (!mapInstance || !geolocateControl.current) return;
+      mapInstance.addControl(geolocateControl.current, 'top-right');
       
       const permissionStatus = localStorage.getItem('mapbox_location_permission');
 
       if (permissionStatus === 'granted') {
-        geolocateControl.current!.trigger();
+        geolocateControl.current.trigger();
       } else if (permissionStatus === null) {
-        // First visit, so we can ask
         navigator.geolocation.getCurrentPosition(
-            () => { // Success
+            () => { 
                 localStorage.setItem('mapbox_location_permission', 'granted');
-                geolocateControl.current!.trigger();
+                geolocateControl.current?.trigger();
             },
-            () => { // Error (denied)
+            () => { 
                 localStorage.setItem('mapbox_location_permission', 'denied');
-            }
+            },
+            { enableHighAccuracy: true }
         );
-      } // If 'denied', we do nothing and don't ask again.
+      }
 
       mapInstance.on('draw.create', handleDrawEvents);
       mapInstance.on('draw.update', handleDrawEvents);
@@ -317,8 +317,10 @@ export default function MapExplorerPage() {
       mapInstance.off('draw.delete', removeMeasurement);
       
       removeMeasurement();
-      mapInstance.remove();
-      map.current = null;
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
     }
   }, [currentStyle, toast, setMapTerrain, calculateAndShowMeasurement, removeMeasurement, handleDrawEvents]);
 
@@ -330,10 +332,9 @@ export default function MapExplorerPage() {
     }
   };
 
-  const handleDownloadMap = () => {
-    if (!map.current || !mapContainer.current) return;
+  const handleDownloadMap = useCallback(() => {
+    if (!map.current) return;
     
-    // Stop any ongoing animation to ensure a static image
     if (isRotating) {
         stopRotation();
     }
@@ -353,9 +354,9 @@ export default function MapExplorerPage() {
         description: "The map image has been saved."
       });
     });
-  };
+  }, [isRotating, toast]);
   
-  const handleSwitchStyle = (style: string) => {
+  const handleSwitchStyle = useCallback((style: string) => {
     if(!map.current) return;
     
     setCurrentStyle(style);
@@ -364,9 +365,9 @@ export default function MapExplorerPage() {
         title: "Map style changed",
         description: `Switched to ${styleName}`,
     });
-  }
+  }, [toast]);
 
-  const handleToggleDrawing = () => {
+  const handleToggleDrawing = useCallback(() => {
     if (!draw.current) return;
 
     const newIsDrawing = !isDrawing;
@@ -378,17 +379,15 @@ export default function MapExplorerPage() {
       }
       draw.current.changeMode('draw_polygon');
     } else {
-      if (draw.current) {
         draw.current.deleteAll();
+        removeMeasurement();
         if (map.current && map.current.hasControl(draw.current)) {
-          map.current.removeControl(draw.current);
+            map.current.removeControl(draw.current);
         }
-      }
-      removeMeasurement();
     }
-  };
+  }, [isDrawing, removeMeasurement]);
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     if (!searchQuery || !map.current || !mapboxgl.accessToken) return;
     
     const geocodingUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json`);
@@ -423,8 +422,21 @@ export default function MapExplorerPage() {
         description: 'Could not fetch location data.',
       });
     }
-  };
+  }, [searchQuery, toast]);
   
+  const triggerGeolocation = useCallback(() => {
+    const permissionStatus = localStorage.getItem('mapbox_location_permission');
+    if (permissionStatus === 'denied') {
+        toast({
+            variant: "destructive",
+            title: "Location Access Denied",
+            description: "Please enable location services in your browser settings to use this feature.",
+        });
+        return;
+    }
+    geolocateControl.current?.trigger();
+  }, [toast]);
+
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
@@ -438,7 +450,7 @@ export default function MapExplorerPage() {
                 variant="outline" 
                 size="icon" 
                 className="absolute top-16 right-4 z-10 rounded-full shadow-lg"
-                onClick={() => geolocateControl.current?.trigger()}
+                onClick={triggerGeolocation}
              >
                 <LocateFixed />
             </Button>
@@ -501,3 +513,4 @@ export default function MapExplorerPage() {
   );
 }
 
+    
