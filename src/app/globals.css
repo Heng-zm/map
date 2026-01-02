@@ -34,8 +34,8 @@ body {
 	animation: pulse 2s infinite;
 }
 
-.mapboxgl-ctrl-top-right .mapboxgl-ctrl-geolocate {
-  display: none;
+.mapboxgl-ctrl-geolocate {
+  display: none !important;
 }
 
 .mapboxgl-ctrl-top-left .mapboxgl-ctrl {

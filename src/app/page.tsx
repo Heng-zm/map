@@ -196,7 +196,7 @@ export default function MapExplorerPage() {
       directionsControl.current.setOrigin(userLocation.current);
       directionsControl.current.setDestination([locationDetails.lng, locationDetails.lat]);
     }
-    setIsDrawerOpen(false); // Close drawer after setting directions
+    setIsDrawerOpen(false);
   }
 
   const formatDistance = (distance: number) => {
