@@ -300,12 +300,12 @@ export default function MapExplorerPage() {
         <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
             <Button 
                 variant="outline" 
-                className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm text-foreground w-auto h-auto p-2.5 text-sm font-semibold"
+                className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm text-foreground w-10 h-10 p-0 text-sm font-semibold"
                 onClick={toggle3D}
              >
                 {is3D ? '3D' : '2D'}
             </Button>
-            <div className="flex flex-col rounded-full shadow-lg bg-background/80 backdrop-blur-sm overflow-hidden">
+            <div className="flex flex-col rounded-full shadow-lg bg-background/80 backdrop-blur-sm overflow-hidden border border-border">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="w-10 h-10 rounded-none">
@@ -360,7 +360,7 @@ export default function MapExplorerPage() {
         </div>
 
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[95%] max-w-md">
-            <div className="flex h-14 items-center gap-2 rounded-full bg-background/80 p-2 shadow-lg backdrop-blur-sm">
+            <div className="flex h-14 items-center gap-2 rounded-full bg-background/80 p-2 shadow-lg backdrop-blur-sm border border-border">
                 <Search className="ml-3 shrink-0 text-muted-foreground" />
                 <Input
                     id="search"
@@ -382,3 +382,5 @@ export default function MapExplorerPage() {
     </div>
   );
 }
+
+    
