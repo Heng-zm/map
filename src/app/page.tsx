@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import * as turf from '@turf/turf';
@@ -65,48 +65,55 @@ export default function MapExplorerPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const startRotation = () => {
-    if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
+    if (map.current) {
+        map.current.easeTo({ bearing: map.current.getBearing() + 180, duration: 2000, easing: (n) => n });
     }
-    const rotate = (timestamp: number) => {
-        if (!map.current) return;
-        map.current.rotateTo((timestamp / 100) % 360, { duration: 0 });
-        animationFrameId.current = requestAnimationFrame(rotate);
+    const rotate = () => {
+      if (!map.current) return;
+      map.current.rotateTo((map.current.getBearing() + 0.1) % 360, { duration: 0 });
+      animationFrameId.current = requestAnimationFrame(rotate);
+    };
+    if (animationFrameId.current) {
+      cancelAnimationFrame(animationFrameId.current);
     }
     animationFrameId.current = requestAnimationFrame(rotate);
     setIsRotating(true);
-  }
+  };
 
   const stopRotation = () => {
     if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-        animationFrameId.current = null;
+      cancelAnimationFrame(animationFrameId.current);
+      animationFrameId.current = null;
     }
     setIsRotating(false);
-  }
+  };
   
-  const setMapTerrain = () => {
+  const setMapTerrain = useCallback(() => {
     if(!map.current) return;
 
-    if (!map.current.getSource('mapbox-dem')) {
-        map.current.addSource('mapbox-dem', {
-          'type': 'raster-dem',
-          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-          'tileSize': 512,
-          'maxzoom': 14
-        });
+    if (map.current.getSource('mapbox-dem')) {
+        map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        return;
     }
-    map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-  }
 
-  const removeMeasurement = () => {
+    map.current.addSource('mapbox-dem', {
+        'type': 'raster-dem',
+        'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+        'tileSize': 512,
+        'maxzoom': 14
+    });
+
+    map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+  }, []);
+
+  const removeMeasurement = useCallback(() => {
     if (measurementPopup.current) {
       measurementPopup.current.remove();
       measurementPopup.current = null;
     }
-  };
+  }, []);
   
-  const calculateAndShowMeasurement = (features: any[]) => {
+  const calculateAndShowMeasurement = useCallback((features: any[]) => {
     removeMeasurement();
     if (features.length === 0 || !map.current) return;
   
@@ -132,7 +139,16 @@ export default function MapExplorerPage() {
             .setHTML(`<div class="bg-card text-card-foreground p-2 rounded">${measurementText}</div>`)
             .addTo(map.current);
     }
-  };
+  }, [removeMeasurement]);
+
+  const handleDrawEvents = useCallback((e: any) => {
+    if (e.features.length > 0) {
+      calculateAndShowMeasurement(e.features);
+    } else {
+      removeMeasurement();
+    }
+  }, [calculateAndShowMeasurement, removeMeasurement]);
+
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -258,61 +274,71 @@ export default function MapExplorerPage() {
       ]
     });
     
-    map.current.on('style.load', () => {
+    const mapInstance = map.current;
+
+    const onStyleLoad = () => {
       setMapTerrain();
-    });
+    };
+    
+    const onLoad = () => {
+      try {
+        const locationPermission = localStorage.getItem(LOCATION_PERMISSION_KEY);
 
-    map.current.on('load', () => {
-      const locationPermission = localStorage.getItem(LOCATION_PERMISSION_KEY);
-
-      if (locationPermission === 'granted') {
+        if (locationPermission === 'granted' && navigator.geolocation) {
           navigator.geolocation.getCurrentPosition((position) => {
-              const { latitude, longitude } = position.coords;
-              map.current?.setCenter([longitude, latitude]);
+            const { latitude, longitude } = position.coords;
+            mapInstance.setCenter([longitude, latitude]);
           });
-      } else if (locationPermission !== 'denied' && navigator.geolocation) {
+        } else if (locationPermission !== 'denied' && navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
-              (position) => {
-                  localStorage.setItem(LOCATION_PERMISSION_KEY, 'granted');
-                  const { latitude, longitude } = position.coords;
-                  map.current?.setCenter([longitude, latitude]);
-              },
-              () => {
-                  localStorage.setItem(LOCATION_PERMISSION_KEY, 'denied');
-                  toast({
-                      title: "Location access denied",
-                      description: "Showing default location. You can grant access in your browser settings.",
-                  });
-              }
+            (position) => {
+              localStorage.setItem(LOCATION_PERMISSION_KEY, 'granted');
+              const { latitude, longitude } = position.coords;
+              mapInstance.setCenter([longitude, latitude]);
+            },
+            () => {
+              localStorage.setItem(LOCATION_PERMISSION_KEY, 'denied');
+              toast({
+                title: "Location access denied",
+                description: "Showing default location. You can grant access in your browser settings.",
+              });
+            }
           );
-      } else if (locationPermission === 'denied') {
+        } else if (locationPermission === 'denied') {
           toast({
-              title: "Location access is denied",
-              description: "To see your current location, please enable it in your browser settings.",
+            title: "Location access is denied",
+            description: "To see your current location, please enable it in your browser settings.",
           });
+        }
+      } catch (e) {
+        console.error("Error accessing location services:", e);
       }
 
-      map.current?.on('draw.create', (e) => calculateAndShowMeasurement(e.features));
-      map.current?.on('draw.update', (e) => calculateAndShowMeasurement(e.features));
-      map.current?.on('draw.selectionchange', (e) => {
-          if (e.features.length > 0) {
-              calculateAndShowMeasurement(e.features)
-          } else {
-              removeMeasurement();
-          }
-      });
-      map.current?.on('draw.delete', removeMeasurement);
-    });
+      mapInstance.on('draw.create', handleDrawEvents);
+      mapInstance.on('draw.update', handleDrawEvents);
+      mapInstance.on('draw.selectionchange', handleDrawEvents);
+      mapInstance.on('draw.delete', removeMeasurement);
+    };
+
+    mapInstance.on('style.load', onStyleLoad);
+    mapInstance.on('load', onLoad);
 
     return () => {
-        if (animationFrameId.current) {
-            cancelAnimationFrame(animationFrameId.current);
-        }
-        removeMeasurement();
-        map.current?.remove();
-        map.current = null;
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+      mapInstance.off('style.load', onStyleLoad);
+      mapInstance.off('load', onLoad);
+      mapInstance.off('draw.create', handleDrawEvents);
+      mapInstance.off('draw.update', handleDrawEvents);
+      mapInstance.off('draw.selectionchange', handleDrawEvents);
+      mapInstance.off('draw.delete', removeMeasurement);
+      
+      removeMeasurement();
+      mapInstance.remove();
+      map.current = null;
     }
-  }, [toast, currentStyle]);
+  }, [currentStyle, toast, setMapTerrain, calculateAndShowMeasurement, removeMeasurement, handleDrawEvents]);
 
   const handleToggleRotation = () => {
     if (isRotating) {
@@ -324,41 +350,53 @@ export default function MapExplorerPage() {
 
   const handleDownloadMap = () => {
     if (!map.current || !mapContainer.current) return;
-    stopRotation();
-  
+    
+    // Stop any ongoing animation to ensure a static image
+    if (isRotating) {
+        stopRotation();
+    }
+
     const mapInstance = map.current;
     const container = mapContainer.current;
-  
-    mapInstance.once('idle', () => {
-      const originalWidth = container.clientWidth;
-      const originalHeight = container.clientHeight;
-  
-      const targetResolution = 3000;
-      
-      const scale = originalWidth > originalHeight 
-        ? targetResolution / originalWidth
-        : targetResolution / originalHeight;
-  
-      const newWidth = originalWidth * scale;
-      const newHeight = originalHeight * scale;
-  
-      container.style.width = `${newWidth}px`;
-      container.style.height = `${newHeight}px`;
-      mapInstance.resize();
-  
-      mapInstance.once('idle', () => {
-        const dataURL = mapInstance.getCanvas().toDataURL('image/png');
+
+    // Use a promise to handle the async nature of map rendering
+    new Promise<string>((resolve) => {
+        mapInstance.once('idle', () => {
+            const originalWidth = container.clientWidth;
+            const originalHeight = container.clientHeight;
+
+            const targetResolution = 3000;
+            const scale = originalWidth > originalHeight 
+                ? targetResolution / originalWidth
+                : targetResolution / originalHeight;
+
+            const newWidth = Math.round(originalWidth * scale);
+            const newHeight = Math.round(originalHeight * scale);
+
+            container.style.width = `${newWidth}px`;
+            container.style.height = `${newHeight}px`;
+            mapInstance.resize();
+
+            mapInstance.once('idle', () => {
+                const dataURL = mapInstance.getCanvas().toDataURL('image/png');
+                
+                // Restore original size
+                container.style.width = `${originalWidth}px`;
+                container.style.height = `${originalHeight}px`;
+                mapInstance.resize();
+                
+                mapInstance.once('idle', () => {
+                    resolve(dataURL);
+                });
+            });
+        });
+    }).then(dataURL => {
         const link = document.createElement('a');
         link.href = dataURL;
         link.download = 'map-high-quality.png';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-  
-        container.style.width = `${originalWidth}px`;
-        container.style.height = `${originalHeight}px`;
-        mapInstance.resize();
-      });
     });
   };
   
@@ -366,7 +404,7 @@ export default function MapExplorerPage() {
     if(!map.current) return;
     
     setCurrentStyle(style);
-    map.current.setStyle(style);
+    // The map will be re-initialized by the useEffect hook
     const styleName = mapStyles.find(s => s.style === style)?.name;
     toast({
         title: "Map style changed",
@@ -382,29 +420,30 @@ export default function MapExplorerPage() {
     
     if (newIsDrawing) {
       if(map.current && !map.current.hasControl(draw.current)){
-        map.current.addControl(draw.current);
+        map.current.addControl(draw.current, 'top-right');
       }
       draw.current.changeMode('draw_polygon');
     } else {
-      draw.current.changeMode('simple_select');
-      if(map.current && map.current.hasControl(draw.current)){
-         const drawnFeatures = draw.current.getAll();
-         if (drawnFeatures.features.length === 0) {
-            map.current.removeControl(draw.current);
-         }
+      if (draw.current) {
+        draw.current.changeMode('simple_select');
+        const drawnFeatures = draw.current.getAll();
+        if (drawnFeatures.features.length === 0 && map.current && map.current.hasControl(draw.current)) {
+          map.current.removeControl(draw.current);
+        }
       }
       removeMeasurement();
     }
   };
 
   const handleSearch = async () => {
-    if (!searchQuery || !map.current) return;
-    const geocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-      searchQuery
-    )}.json?access_token=${mapboxgl.accessToken}&language=km,en`;
+    if (!searchQuery || !map.current || !mapboxgl.accessToken) return;
+    
+    const geocodingUrl = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json`);
+    geocodingUrl.searchParams.append('access_token', mapboxgl.accessToken);
+    geocodingUrl.searchParams.append('language', 'km,en');
 
     try {
-      const response = await fetch(geocodingUrl);
+      const response = await fetch(geocodingUrl.toString());
       const data = await response.json();
       if (data.features && data.features.length > 0) {
         const [longitude, latitude] = data.features[0].center;
@@ -424,6 +463,7 @@ export default function MapExplorerPage() {
         });
       }
     } catch (error) {
+      console.error("Geocoding error:", error);
       toast({
         variant: 'destructive',
         title: 'Geocoding error',
@@ -524,3 +564,5 @@ export default function MapExplorerPage() {
     </div>
   );
 }
+
+    
