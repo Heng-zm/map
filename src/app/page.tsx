@@ -32,9 +32,10 @@ const mapStyle = 'mapbox://styles/mapbox/standard';
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const marker = useRef<Marker | null>(null);
   const directionsControl = useRef<MapboxDirections | null>(null);
   const userLocation = useRef<[number, number] | null>(null);
+  const geolocateControl = useRef<GeolocateControl | null>(null);
+  const destinationMarker = useRef<Marker | null>(null);
   const { toast } = useToast();
 
   const [locationDetails, setLocationDetails] = useState<{lng: number, lat: number} | null>(null);
@@ -72,6 +73,7 @@ export default function MapExplorerPage() {
       trackUserLocation: true,
       showUserLocation: true
     });
+    geolocateControl.current = geolocate;
     
     mapInstance.addControl(geolocate);
 
@@ -108,8 +110,8 @@ export default function MapExplorerPage() {
     const onMapClick = (e: mapboxgl.MapMouseEvent & {
       features?: mapboxgl.MapboxGeoJSONFeature[] | undefined;
     }) => {
-      if (marker.current) {
-        marker.current.remove();
+      if (destinationMarker.current) {
+        destinationMarker.current.remove();
       }
       if (directionsControl.current) {
         directionsControl.current.removeRoutes();
@@ -117,7 +119,7 @@ export default function MapExplorerPage() {
       setRouteDetails(null);
       
       const newMarker = new Marker().setLngLat(e.lngLat).addTo(mapInstance);
-      marker.current = newMarker;
+      destinationMarker.current = newMarker;
 
       setLocationDetails(e.lngLat);
       setIsDrawerOpen(true);
@@ -166,9 +168,9 @@ export default function MapExplorerPage() {
 
   const handleDrawerClose = () => {
     setIsDrawerOpen(false);
-    if (marker.current) {
-      marker.current.remove();
-      marker.current = null;
+    if (destinationMarker.current) {
+      destinationMarker.current.remove();
+      destinationMarker.current = null;
     }
     if (directionsControl.current) {
       directionsControl.current.removeRoutes();
@@ -181,10 +183,10 @@ export default function MapExplorerPage() {
   const handleGetDirections = () => {
     if (!userLocation.current) {
       toast({
-        variant: "destructive",
-        title: "User location not available",
-        description: "Please enable location services to get directions.",
+        title: "Getting your location...",
+        description: "Please grant location access to get directions.",
       });
+      geolocateControl.current?.trigger();
       return;
     }
 
@@ -256,9 +258,8 @@ export default function MapExplorerPage() {
                   <p><strong>Latitude:</strong> {locationDetails.lat.toFixed(6)}</p>
                   <p><strong>Longitude:</strong> {locationDetails.lng.toFixed(6)}</p>
                 </div>
-                <SheetFooter className="flex-row gap-2 pt-4">
-                  <Button variant="outline" className="flex-1" onClick={handleGetDirections}>Get Directions</Button>
-                  <Button className="flex-1">Save Place</Button>
+                <SheetFooter className="pt-4">
+                  <Button className="w-full" onClick={handleGetDirections}>Get Directions</Button>
                 </SheetFooter>
               </div>
             )}
