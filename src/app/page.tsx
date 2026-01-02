@@ -29,7 +29,6 @@ export default function MapExplorerPage() {
   
   const userLocation = useRef<[number, number] | null>(null);
   const isNavigating = useRef<boolean>(false);
-  const observer = useRef<MutationObserver | null>(null);
 
   const { toast } = useToast();
   const [locationDetails, setLocationDetails] = useState<{lng: number, lat: number} | null>(null);
@@ -37,16 +36,6 @@ export default function MapExplorerPage() {
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [routeDetails, setRouteDetails] = useState<{distance: number, duration: number} | null>(null);
-
-  const forceHideUnwantedMarkers = () => {
-      if (!mapContainer.current) return;
-      const unwanted = mapContainer.current.querySelectorAll('.mapbox-directions-origin, .mapbox-directions-destination, .mapbox-directions-step');
-      unwanted.forEach((el) => {
-         (el as HTMLElement).style.display = 'none';
-         (el as HTMLElement).style.opacity = '0';
-         (el as HTMLElement).style.pointerEvents = 'none';
-      });
-  }
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -73,7 +62,7 @@ export default function MapExplorerPage() {
       positionOptions: { enableHighAccuracy: true },
       trackUserLocation: true,
       showUserLocation: true,
-      showAccuracyCircle: true
+      showAccuracyCircle: true,
     });
     geolocateControl.current = geolocate;
     mapInstance.addControl(geolocate, 'top-right');
@@ -88,17 +77,6 @@ export default function MapExplorerPage() {
     mapInstance.addControl(directions, 'top-left');
     directionsControl.current = directions;
     
-    if (mapContainer.current) {
-        observer.current = new MutationObserver((mutations) => {
-           forceHideUnwantedMarkers();
-        });
-
-        observer.current.observe(mapContainer.current, { 
-            childList: true, 
-            subtree: true 
-        });
-    }
-
     geolocate.on('geolocate', (e: any) => {
       const pos = e.coords;
       const newUserLocation: [number, number] = [pos.longitude, pos.latitude];
@@ -115,13 +93,11 @@ export default function MapExplorerPage() {
             distance: route.distance,
             duration: route.duration,
           });
-          forceHideUnwantedMarkers();
         }
     });
 
     mapInstance.on('load', () => {
       geolocate.trigger();
-      forceHideUnwantedMarkers();
     });
     
     const onMapClick = (e: mapboxgl.MapMouseEvent) => {
@@ -150,7 +126,6 @@ export default function MapExplorerPage() {
 
     return () => {
       mapInstance.off('click', onMapClick);
-      if (observer.current) observer.current.disconnect();
       if (map.current) {
         map.current.remove();
         map.current = null;
@@ -185,12 +160,6 @@ export default function MapExplorerPage() {
       fetchAddress();
     }
   }, [locationDetails]);
-  
-  useEffect(() => {
-    if (routeDetails) {
-      forceHideUnwantedMarkers();
-    }
-  }, [routeDetails]);
 
   const handleStartNavigation = () => {
     if (!userLocation.current) {
@@ -236,17 +205,6 @@ export default function MapExplorerPage() {
 
   return (
     <div className="relative h-screen w-full overflow-hidden bg-zinc-950 font-sans text-zinc-50">
-        
-        <style jsx global>{`
-          div[class*="mapbox-directions-origin"],
-          div[class*="mapbox-directions-destination"],
-          div[class*="mapbox-directions-step"] {
-            display: none !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-          }
-        `}</style>
-
         <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
 
         {routeDetails && (
