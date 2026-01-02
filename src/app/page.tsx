@@ -62,7 +62,6 @@ export default function MapExplorerPage() {
       zoom: initialZoom,
       pitch: 0,
       bearing: 0,
-      preserveDrawingBuffer: true,
     });
     map.current = mapInstance;
     
