@@ -49,8 +49,6 @@ const mapStyles = [
   { name: 'Satellite', style: 'mapbox://styles/mapbox/satellite-streets-v12' },
 ];
 
-const LOCATION_PERMISSION_KEY = 'location_permission_status';
-
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -275,44 +273,23 @@ export default function MapExplorerPage() {
     });
     
     const mapInstance = map.current;
+    
+    const geolocate = new mapboxgl.GeolocateControl({
+        positionOptions: {
+            enableHighAccuracy: true
+        },
+        trackUserLocation: true,
+        showUserHeading: true
+    });
+    
+    mapInstance.addControl(geolocate, 'top-right');
 
     const onStyleLoad = () => {
       setMapTerrain();
     };
     
     const onLoad = () => {
-      try {
-        const locationPermission = localStorage.getItem(LOCATION_PERMISSION_KEY);
-
-        if (locationPermission === 'granted' && navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            mapInstance.setCenter([longitude, latitude]);
-          });
-        } else if (locationPermission !== 'denied' && navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              localStorage.setItem(LOCATION_PERMISSION_KEY, 'granted');
-              const { latitude, longitude } = position.coords;
-              mapInstance.setCenter([longitude, latitude]);
-            },
-            () => {
-              localStorage.setItem(LOCATION_PERMISSION_KEY, 'denied');
-              toast({
-                title: "Location access denied",
-                description: "Showing default location. You can grant access in your browser settings.",
-              });
-            }
-          );
-        } else if (locationPermission === 'denied') {
-          toast({
-            title: "Location access is denied",
-            description: "To see your current location, please enable it in your browser settings.",
-          });
-        }
-      } catch (e) {
-        console.error("Error accessing location services:", e);
-      }
+      geolocate.trigger();
 
       mapInstance.on('draw.create', handleDrawEvents);
       mapInstance.on('draw.update', handleDrawEvents);
@@ -564,5 +541,3 @@ export default function MapExplorerPage() {
     </div>
   );
 }
-
-    
