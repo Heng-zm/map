@@ -90,7 +90,6 @@ export default function MapExplorerPage() {
           instructions: false,
           profileSwitcher: false,
         },
-        styles: []
       });
       mapInstance.addControl(directions, 'top-left');
       directionsControl.current = directions;
