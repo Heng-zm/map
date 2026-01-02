@@ -34,19 +34,13 @@ body {
 	animation: pulse 2s infinite;
 }
 
-.mapboxgl-ctrl-top-right {
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl-geolocate {
   display: none;
 }
 
-.mapboxgl-ctrl.mapboxgl-ctrl-group {
-  background-color: transparent;
-  box-shadow: none;
-}
-
-.mapboxgl-ctrl-top-left {
+.mapboxgl-ctrl-top-left .mapboxgl-ctrl {
   display: none;
 }
-
 
 @keyframes pulse {
 	0% {
