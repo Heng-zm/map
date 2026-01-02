@@ -38,6 +38,11 @@ body {
 	animation: pulse 2s infinite;
 }
 
+.mapboxgl-ctrl.mapboxgl-ctrl-group {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
 .mapboxgl-ctrl-geolocate {
   width: 48px !important;
   height: 48px !important;
