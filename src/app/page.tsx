@@ -12,6 +12,7 @@ import { Download, RotateCw, PenTool, Search, Layers, LocateFixed } from 'lucide
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from "@/components/drawer";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -440,74 +441,72 @@ export default function MapExplorerPage() {
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
+        <Button 
+            variant="outline" 
+            size="icon" 
+            className="absolute top-4 right-4 z-10 rounded-full shadow-lg"
+            onClick={triggerGeolocation}
+         >
+            <LocateFixed />
+        </Button>
         <Drawer>
-            <Button 
-                variant="outline" 
-                size="icon" 
-                className="absolute top-4 right-4 z-10 rounded-full shadow-lg"
-                onClick={triggerGeolocation}
-             >
-                <LocateFixed />
-            </Button>
             <DrawerContent>
-                <div className="mx-auto w-full max-w-md">
-                <DrawerHeader>
-                    <DrawerTitle>Map Explorer</DrawerTitle>
-                    <DrawerDescription>Explore, draw, and measure on the map.</DrawerDescription>
-                </DrawerHeader>
-                <div className="p-4 pb-0 space-y-4">
-                    <div className="flex items-center gap-2">
-                        <Input
-                            id="search"
-                            placeholder="Find a location..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                        />
-                        <Button onClick={handleSearch} size="icon" variant="outline" className="shrink-0">
-                            <Search />
-                        </Button>
-                    </div>
-                    <Separator />
-                     <div className="grid grid-cols-2 gap-4">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="w-full justify-between">
-                                <span>{mapStyles.find(s => s.style === currentStyle)?.name}</span>
-                                <Layers className="h-4 w-4" />
+                <ScrollArea className="h-full">
+                    <div className="mx-auto w-full max-w-md">
+                        <DrawerHeader>
+                            <DrawerTitle>Map Explorer</DrawerTitle>
+                            <DrawerDescription>Explore, draw, and measure on the map.</DrawerDescription>
+                        </DrawerHeader>
+                        <div className="p-4 pb-0 space-y-4">
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    id="search"
+                                    placeholder="Find a location..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                />
+                                <Button onClick={handleSearch} size="icon" variant="outline" className="shrink-0">
+                                    <Search />
                                 </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-56">
-                                {mapStyles.map((style) => (
-                                <DropdownMenuItem key={style.name} onSelect={() => handleSwitchStyle(style.style)}>
-                                    {style.name}
-                                </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                        <Button variant={isDrawing ? "default" : "outline"} onClick={handleToggleDrawing}>
-                            <PenTool />
-                            <span>{isDrawing ? 'Exit Drawing' : 'Draw on Map'}</span>
-                        </Button>
-                        <Button variant={isRotating ? "default" : "outline"} onClick={handleToggleRotation}>
-                            <RotateCw className={isRotating ? 'animate-spin' : ''}/>
-                            <span>{isRotating ? 'Stop Rotation' : 'Rotate Camera'}</span>
-                        </Button>
-                     </div>
-                </div>
-                <DrawerFooter>
-                    <Button onClick={handleDownloadMap}>
-                        <Download />
-                        Download Map
-                    </Button>
-                </DrawerFooter>
-                </div>
+                            </div>
+                            <Separator />
+                             <div className="grid grid-cols-2 gap-4">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between">
+                                        <span>{mapStyles.find(s => s.style === currentStyle)?.name}</span>
+                                        <Layers className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent className="w-56">
+                                        {mapStyles.map((style) => (
+                                        <DropdownMenuItem key={style.name} onSelect={() => handleSwitchStyle(style.style)}>
+                                            {style.name}
+                                        </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <Button variant={isDrawing ? "default" : "outline"} onClick={handleToggleDrawing}>
+                                    <PenTool />
+                                    <span>{isDrawing ? 'Exit Drawing' : 'Draw on Map'}</span>
+                                </Button>
+                                <Button variant={isRotating ? "default" : "outline"} onClick={handleToggleRotation}>
+                                    <RotateCw className={isRotating ? 'animate-spin' : ''}/>
+                                    <span>{isRotating ? 'Stop Rotation' : 'Rotate Camera'}</span>
+                                </Button>
+                             </div>
+                        </div>
+                        <DrawerFooter>
+                            <Button onClick={handleDownloadMap}>
+                                <Download />
+                                Download Map
+                            </Button>
+                        </DrawerFooter>
+                    </div>
+                </ScrollArea>
             </DrawerContent>
         </Drawer>
     </div>
   );
 }
-
-    
-
-    
