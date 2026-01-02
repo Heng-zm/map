@@ -8,23 +8,10 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download, RotateCw, PenTool, Search, Compass, Layers } from 'lucide-react';
+import { Download, RotateCw, PenTool, Search, Compass, Layers, PanelTopOpen, LocateFixed } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
-  SidebarTrigger,
-  SidebarSeparator,
-} from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerTrigger } from "@/components/drawer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,6 +48,8 @@ export default function MapExplorerPage() {
   const measurementPopup = useRef<mapboxgl.Popup | null>(null);
   const searchMarker = useRef<mapboxgl.Marker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const geolocateControl = useRef<mapboxgl.GeolocateControl | null>(null);
+
 
   const startRotation = () => {
     if (map.current) {
@@ -274,12 +263,13 @@ export default function MapExplorerPage() {
     
     const mapInstance = map.current;
     
-    const geolocate = new mapboxgl.GeolocateControl({
+    geolocateControl.current = new mapboxgl.GeolocateControl({
         positionOptions: {
             enableHighAccuracy: true
         },
         trackUserLocation: true,
-        showUserHeading: true
+        showUserHeading: true,
+        showUserLocation: false, // We hide the default button
     });
 
     const onStyleLoad = () => {
@@ -287,18 +277,18 @@ export default function MapExplorerPage() {
     };
     
     const onLoad = () => {
-      mapInstance.addControl(geolocate, 'top-right');
+      mapInstance.addControl(geolocateControl.current!, 'top-right');
       
       const permissionStatus = localStorage.getItem('mapbox_location_permission');
 
       if (permissionStatus === 'granted') {
-        geolocate.trigger();
+        geolocateControl.current!.trigger();
       } else if (permissionStatus === null) {
         // First visit, so we can ask
         navigator.geolocation.getCurrentPosition(
             () => { // Success
                 localStorage.setItem('mapbox_location_permission', 'granted');
-                geolocate.trigger();
+                geolocateControl.current!.trigger();
             },
             () => { // Error (denied)
                 localStorage.setItem('mapbox_location_permission', 'denied');
@@ -330,7 +320,7 @@ export default function MapExplorerPage() {
       mapInstance.remove();
       map.current = null;
     }
-  }, [currentStyle, setMapTerrain, calculateAndShowMeasurement, removeMeasurement, handleDrawEvents]);
+  }, [currentStyle, toast, setMapTerrain, calculateAndShowMeasurement, removeMeasurement, handleDrawEvents]);
 
   const handleToggleRotation = () => {
     if (isRotating) {
@@ -349,7 +339,6 @@ export default function MapExplorerPage() {
     }
 
     const mapInstance = map.current;
-    const container = mapContainer.current;
 
     mapInstance.once('idle', () => {
       const dataURL = mapInstance.getCanvas().toDataURL('image/png');
@@ -385,14 +374,13 @@ export default function MapExplorerPage() {
     
     if (newIsDrawing) {
       if(map.current && !map.current.hasControl(draw.current)){
-        map.current.addControl(draw.current, 'top-right');
+        map.current.addControl(draw.current, 'top-left');
       }
       draw.current.changeMode('draw_polygon');
     } else {
       if (draw.current) {
-        draw.current.changeMode('simple_select');
-        const drawnFeatures = draw.current.getAll();
-        if (drawnFeatures.features.length === 0 && map.current && map.current.hasControl(draw.current)) {
+        draw.current.deleteAll();
+        if (map.current && map.current.hasControl(draw.current)) {
           map.current.removeControl(draw.current);
         }
       }
@@ -439,93 +427,77 @@ export default function MapExplorerPage() {
   
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
-      <SidebarProvider>
-        <Sidebar>
-          <SidebarHeader>
-            <div className="flex items-center gap-3 p-2">
-              <Compass size={24} />
-              <h1 className="text-xl font-semibold">Map Explorer</h1>
-            </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel className="font-semibold">Search</SidebarGroupLabel>
-              <div className="flex gap-2 p-2">
-                <Input
-                  type="text"
-                  placeholder="Find a location..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                />
-                <Button onClick={handleSearch} size="icon" variant="outline">
-                  <Search />
+        <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
+        <Drawer>
+            <DrawerTrigger asChild>
+                <Button variant="outline" size="icon" className="absolute top-4 right-4 z-10 rounded-full shadow-lg">
+                    <PanelTopOpen />
                 </Button>
-              </div>
-            </SidebarGroup>
-            
-            <SidebarGroup>
-              <SidebarGroupLabel className="font-semibold">Map Style</SidebarGroupLabel>
-              <div className="p-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between">
-                      <span>{mapStyles.find(s => s.style === currentStyle)?.name}</span>
-                      <Layers className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56">
-                    {mapStyles.map((style) => (
-                      <DropdownMenuItem key={style.name} onSelect={() => handleSwitchStyle(style.style)}>
-                        {style.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </SidebarGroup>
-
-            <SidebarGroup>
-              <SidebarGroupLabel className="font-semibold">Tools</SidebarGroupLabel>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton 
-                            onClick={handleToggleRotation} 
-                            isActive={isRotating}
-                            tooltip="Rotate Camera"
-                        >
-                            <RotateCw className={isRotating ? 'animate-spin' : ''}/>
-                            <span>{isRotating ? 'Stop Rotation' : 'Rotate Camera'}</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                     <SidebarMenuItem>
-                        <SidebarMenuButton 
-                            onClick={handleToggleDrawing} 
-                            isActive={isDrawing}
-                            tooltip="Draw on Map"
-                        >
+            </DrawerTrigger>
+             <Button 
+                variant="outline" 
+                size="icon" 
+                className="absolute top-16 right-4 z-10 rounded-full shadow-lg"
+                onClick={() => geolocateControl.current?.trigger()}
+             >
+                <LocateFixed />
+            </Button>
+            <DrawerContent>
+                <div className="mx-auto w-full max-w-md">
+                <DrawerHeader>
+                    <DrawerTitle>Map Explorer</DrawerTitle>
+                    <DrawerDescription>Explore, draw, and measure on the map.</DrawerDescription>
+                </DrawerHeader>
+                <div className="p-4 pb-0 space-y-4">
+                    <div className="flex items-center gap-2">
+                        <Input
+                            id="search"
+                            placeholder="Find a location..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                        />
+                        <Button onClick={handleSearch} size="icon" variant="outline" className="shrink-0">
+                            <Search />
+                        </Button>
+                    </div>
+                    <Separator />
+                     <div className="grid grid-cols-2 gap-4">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between">
+                                <span>{mapStyles.find(s => s.style === currentStyle)?.name}</span>
+                                <Layers className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56">
+                                {mapStyles.map((style) => (
+                                <DropdownMenuItem key={style.name} onSelect={() => handleSwitchStyle(style.style)}>
+                                    {style.name}
+                                </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button variant={isDrawing ? "default" : "outline"} onClick={handleToggleDrawing}>
                             <PenTool />
                             <span>{isDrawing ? 'Exit Drawing' : 'Draw on Map'}</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarGroup>
-          </SidebarContent>
-          <SidebarSeparator />
-          <SidebarFooter>
-            <Button onClick={handleDownloadMap} className="w-full">
-              <Download />
-              Download Map
-            </Button>
-          </SidebarFooter>
-        </Sidebar>
-        <SidebarInset>
-          <div className="absolute top-2 left-2 z-10">
-             <SidebarTrigger />
-          </div>
-          <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-        </SidebarInset>
-      </SidebarProvider>
+                        </Button>
+                        <Button variant={isRotating ? "default" : "outline"} onClick={handleToggleRotation}>
+                            <RotateCw className={isRotating ? 'animate-spin' : ''}/>
+                            <span>{isRotating ? 'Stop Rotation' : 'Rotate Camera'}</span>
+                        </Button>
+                     </div>
+                </div>
+                <DrawerFooter>
+                    <Button onClick={handleDownloadMap}>
+                        <Download />
+                        Download Map
+                    </Button>
+                </DrawerFooter>
+                </div>
+            </DrawerContent>
+        </Drawer>
     </div>
   );
 }
+
