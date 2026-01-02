@@ -188,7 +188,7 @@ export default function MapExplorerPage() {
         { "id": "gl-draw-line-active", "type": "line", "filter": ["all", ["==", "$type", "LineString"], ["==", "active", "true"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-dasharray": [0.2, 2], "line-width": 2 } },
         { "id": "gl-draw-polygon-and-line-vertex-stroke-active", "type": "circle", "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]], "paint": { "circle-radius": 5, "circle-color": "hsl(211, 63%, 54%)" } },
         { "id": "gl-draw-polygon-and-line-vertex-active", "type": "circle", "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]], "paint": { "circle-radius": 3, "circle-color": "#FFF" } },
-        { "id": "gl-draw-polygon-fill-inactive", "type": "fill", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "paint": { "fill-color": "hsl(211, 63%, 54%)", "fill-outline-color": "hsl(211, 63%, 54%)", "fill-opacity": 0.1 } },
+        { "id": "gl-draw-polygon-fill-inactive", "type": "fill", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "paint": { "fill-color": "hsl(211, 63%, 54%)", "fill-outline-color": "#3b82f6", "fill-opacity": 0.1 } },
         { "id": "gl-draw-polygon-stroke-inactive", "type": "line", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-width": 2 } },
         { "id": "gl-draw-line-inactive", "type": "line", "filter": ["all", ["==", "active", "false"], ["==", "$type", "LineString"], ["!=", "mode", "static"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(211, 63%, 54%)", "line-width": 2 } },
       ]
@@ -400,10 +400,10 @@ export default function MapExplorerPage() {
         </div>
 
         <div className="absolute top-20 right-4 flex flex-col items-end gap-2 md:top-4">
-            <div className="bg-card/80 backdrop-blur-sm rounded-full p-1 flex flex-col gap-1 shadow-lg border border-border">
+            <div className="bg-card/80 backdrop-blur-sm rounded-lg p-1 flex flex-col gap-1 shadow-lg border border-border">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
+                        <Button variant="ghost" size="icon" className="rounded-md h-10 w-10">
                             <Layers />
                         </Button>
                     </DropdownMenuTrigger>
@@ -419,7 +419,7 @@ export default function MapExplorerPage() {
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
+                        <Button variant="ghost" size="icon" className="rounded-md h-10 w-10">
                             <PenTool />
                         </Button>
                     </DropdownMenuTrigger>
@@ -448,15 +448,15 @@ export default function MapExplorerPage() {
                     </DropdownMenuContent>
                 </DropdownMenu>
                 
-                <Button variant={directionsVisible ? "default" : "ghost"} size="icon" className="rounded-full h-10 w-10" onClick={toggleDirections}>
+                <Button variant={directionsVisible ? "default" : "ghost"} size="icon" className="rounded-md h-10 w-10" onClick={toggleDirections}>
                     <Route />
                 </Button>
                 
-                <Button variant={is3D ? "default" : "ghost"} size="icon" className="rounded-full h-10 w-10" onClick={toggle3D}>
+                <Button variant={is3D ? "default" : "ghost"} size="icon" className="rounded-md h-10 w-10" onClick={toggle3D}>
                    <div className="w-4 h-4 flex items-center justify-center font-semibold text-xs">3D</div>
                 </Button>
 
-                 <Button variant="ghost" size="icon" className="rounded-full h-10 w-10" onClick={triggerGeolocation}>
+                 <Button variant="ghost" size="icon" className="rounded-md h-10 w-10" onClick={triggerGeolocation}>
                     <ArrowUp />
                 </Button>
             </div>
