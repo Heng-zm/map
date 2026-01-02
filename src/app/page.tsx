@@ -9,22 +9,10 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Globe, ArrowUp, Search, PenTool, Trash2, Combine, Minus, Dot, Route, MapPin, Layers, Pencil, Star } from 'lucide-react';
+import { Globe, ArrowUp, Search, PenTool, Trash2, Combine, Minus, Dot, Route, MapPin, Layers, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarTrigger,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarSeparator,
-  SidebarInset,
-} from '@/components/ui/sidebar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -224,7 +212,6 @@ export default function MapExplorerPage() {
     });
 
     mapInstance.addControl(draw.current);
-    mapInstance.addControl(geolocateControl.current, 'top-right');
     if (directions.current) {
       mapInstance.addControl(directions.current, 'top-left');
     }
@@ -268,7 +255,7 @@ export default function MapExplorerPage() {
         map.current = null;
       }
     }
-  }, [currentStyle, is3D, toast, handleDrawEvents, removeMeasurement, handleMapClickForPin, removeDroppedPin, setMapTerrain]);
+  }, [toast, is3D, currentStyle, handleDrawEvents, removeMeasurement, handleMapClickForPin, removeDroppedPin, setMapTerrain]);
 
   useEffect(() => {
     if (directions.current) {
@@ -329,6 +316,7 @@ export default function MapExplorerPage() {
   
   const triggerGeolocation = useCallback(() => {
     const permissionStatus = localStorage.getItem('mapbox_location_permission');
+    
     if (permissionStatus === 'denied') {
         toast({
             variant: "destructive",
@@ -338,10 +326,29 @@ export default function MapExplorerPage() {
         return;
     }
     
-    if (geolocateControl.current) {
-      geolocateControl.current.trigger();
+    if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then(permission => {
+            if (permission.state === 'prompt') {
+                localStorage.setItem('mapbox_location_permission_requested', 'true');
+            }
+            if (geolocateControl.current) {
+                geolocateControl.current.trigger();
+            }
+            permission.onchange = () => {
+                localStorage.setItem('mapbox_location_permission', permission.state);
+                if(permission.state === 'granted' && localStorage.getItem('mapbox_location_permission_requested') === 'true'){
+                    if (geolocateControl.current) {
+                        geolocateControl.current.trigger();
+                    }
+                    localStorage.removeItem('mapbox_location_permission_requested');
+                }
+            };
+        });
+    } else if (geolocateControl.current) {
+        geolocateControl.current.trigger();
     }
   }, [toast]);
+  
 
   const toggle3D = useCallback(() => {
     setIs3D(prev => {
@@ -375,110 +382,88 @@ export default function MapExplorerPage() {
   
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
-      <SidebarProvider>
-        <Sidebar>
-          <SidebarHeader>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Map Explorer</h2>
-              <SidebarTrigger />
-            </div>
+        <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
+        
+        <div className="absolute top-4 left-4 right-4 md:left-auto md:right-auto md:w-96">
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search..." 
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Search for a place or address" 
+                    className="pl-9 h-12 rounded-full shadow-lg"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                 <Button onClick={handleSearch} size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full" key="searchButton">
+                    <Search className="h-4 w-4" />
+                </Button>
             </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarGroup>
-                <SidebarGroupLabel>Map Styles</SidebarGroupLabel>
-                <SidebarMenu>
-                    {mapStyles.map((style) => (
-                    <SidebarMenuItem key={style.name}>
-                        <SidebarMenuButton 
-                          onClick={() => handleSwitchStyle(style.style)} 
-                          isActive={currentStyle === style.style}
-                          tooltip={style.name}
-                        >
-                            {style.icon}
-                            <span>{style.name}</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    ))}
-                </SidebarMenu>
-            </SidebarGroup>
-            <SidebarSeparator />
-            <SidebarGroup>
-                <SidebarGroupLabel>Drawing Tools</SidebarGroupLabel>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton tooltip="Map Pin" onClick={activateDropPinMode}>
+        </div>
+
+        <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+            <div className="bg-card/80 backdrop-blur-sm rounded-full p-1 flex flex-col gap-1 shadow-lg border border-border">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
+                            <Layers />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        {mapStyles.map((style) => (
+                            <DropdownMenuItem key={style.name} onClick={() => handleSwitchStyle(style.style)}>
+                                {style.icon}
+                                <span>{style.name}</span>
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
+                            <PenTool />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={activateDropPinMode}>
                             <MapPin/>
                             <span>Map Pin</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton tooltip="Point" onClick={() => setDrawMode('draw_point')}>
+                        </DropdownMenuItem>
+                         <DropdownMenuItem onClick={() => setDrawMode('draw_point')}>
                             <Dot />
                             <span>Point</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton tooltip="Line" onClick={() => setDrawMode('draw_line_string')}>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setDrawMode('draw_line_string')}>
                             <Minus />
                             <span>Line</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton tooltip="Polygon" onClick={() => setDrawMode('draw_polygon')}>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setDrawMode('draw_polygon')}>
                             <Combine />
                             <span>Polygon</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton tooltip="Delete All" onClick={deleteFeatures}>
-                            <Trash2 className="text-destructive" />
-                            <span className="text-destructive">Delete All</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarGroup>
-            <SidebarSeparator />
-            <SidebarGroup>
-                <SidebarGroupLabel>Actions</SidebarGroupLabel>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton tooltip="Directions" onClick={toggleDirections} isActive={directionsVisible}>
-                            <Route />
-                            <span>Directions</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton tooltip={is3D ? "Switch to 2D" : "Switch to 3D"} onClick={toggle3D} isActive={is3D}>
-                            <div className="w-4 h-4 flex items-center justify-center font-semibold text-xs">
-                                {is3D ? '3D' : '2D'}
-                            </div>
-                            <span>{is3D ? '3D View' : '2D View'}</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                     <SidebarMenuItem>
-                        <SidebarMenuButton tooltip="Current Location" onClick={triggerGeolocation}>
-                            <ArrowUp />
-                            <span>Current Location</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarGroup>
-          </SidebarContent>
-        </Sidebar>
-        <SidebarInset>
-            <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
-        </SidebarInset>
-      </SidebarProvider>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={deleteFeatures} className="text-destructive">
+                            <Trash2 />
+                            <span>Delete All</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                
+                <Button variant={directionsVisible ? "default" : "ghost"} size="icon" className="rounded-full h-10 w-10" onClick={toggleDirections}>
+                    <Route />
+                </Button>
+                
+                <Button variant={is3D ? "default" : "ghost"} size="icon" className="rounded-full h-10 w-10" onClick={toggle3D}>
+                   <div className="w-4 h-4 flex items-center justify-center font-semibold text-xs">3D</div>
+                </Button>
+
+                 <Button variant="ghost" size="icon" className="rounded-full h-10 w-10" onClick={triggerGeolocation}>
+                    <ArrowUp />
+                </Button>
+            </div>
+        </div>
     </div>
   );
 }
+
+    
