@@ -138,7 +138,10 @@ export default function MapExplorerPage() {
   const handleMapClickForPin = useCallback((e: mapboxgl.MapLayerMouseEvent) => {
     if (map.current) {
         removeDroppedPin();
-        droppedPin.current = new mapboxgl.Marker({ color: '#E54E4E' })
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+
+        droppedPin.current = new mapboxgl.Marker(el)
             .setLngLat(e.lngLat)
             .addTo(map.current);
         // Deactivate pin drop mode
