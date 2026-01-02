@@ -119,6 +119,32 @@ export default function MapExplorerPage() {
     }
   }, [toast, is3D, currentStyle, setMapTerrain]);
 
+  useEffect(() => {
+    if (directionsVisible) {
+      const script = document.createElement('script');
+      script.id = 'mapbox-directions-mover';
+      script.innerHTML = `
+        const directionsContainer = document.querySelector('#directions-container');
+        const mapboxDirectionsEl = document.querySelector('.mapboxgl-ctrl-top-left');
+        if (mapboxDirectionsEl && directionsContainer) {
+          directionsContainer.appendChild(mapboxDirectionsEl);
+        }
+      `;
+      document.body.appendChild(script);
+
+      return () => {
+        const scriptEl = document.getElementById('mapbox-directions-mover');
+        if (scriptEl) {
+          document.body.removeChild(scriptEl);
+        }
+        const mapboxDirectionsEl = document.querySelector('.mapboxgl-ctrl-top-left');
+        if (mapboxDirectionsEl && mapboxDirectionsEl.parentNode?.id !== 'directions-container') {
+            // If it was moved back by mapbox, we don't need to do anything.
+        }
+      };
+    }
+  }, [directionsVisible]);
+
   const handleSwitchStyle = useCallback((style: string) => {
     if(!map.current) return;
     setCurrentStyle(style);
@@ -282,19 +308,6 @@ export default function MapExplorerPage() {
                 </div>
            </div>
         </div>
-        
-         <script
-            key="mapbox-directions-mover"
-            dangerouslySetInnerHTML={{
-              __html: `
-                const directionsContainer = document.querySelector('#directions-container');
-                const mapboxDirectionsEl = document.querySelector('.mapboxgl-ctrl-top-left');
-                if (mapboxDirectionsEl && directionsContainer) {
-                  directionsContainer.appendChild(mapboxDirectionsEl);
-                }
-              `,
-            }}
-        />
     </div>
   );
 }
