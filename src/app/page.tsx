@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '@/components/ui/card';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -40,6 +41,7 @@ export default function MapExplorerPage() {
   const [addressDetails, setAddressDetails] = useState<any>(null);
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [routeDetails, setRouteDetails] = useState<{distance: number, duration: number} | null>(null);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -92,6 +94,16 @@ export default function MapExplorerPage() {
       });
       mapInstance.addControl(directions, 'top-left');
       directionsControl.current = directions;
+
+      directions.on('route', (e: any) => {
+        if (e.route && e.route.length > 0) {
+          const route = e.route[0];
+          setRouteDetails({
+            distance: route.distance,
+            duration: route.duration,
+          });
+        }
+      });
     });
     
     const onMapClick = (e: mapboxgl.MapMouseEvent & {
@@ -103,6 +115,7 @@ export default function MapExplorerPage() {
       if (directionsControl.current) {
         directionsControl.current.removeRoutes();
       }
+      setRouteDetails(null);
       
       const newMarker = new Marker().setLngLat(e.lngLat).addTo(mapInstance);
       marker.current = newMarker;
@@ -163,6 +176,7 @@ export default function MapExplorerPage() {
     }
     setLocationDetails(null);
     setAddressDetails(null);
+    setRouteDetails(null);
   };
 
   const handleGetDirections = () => {
@@ -184,10 +198,40 @@ export default function MapExplorerPage() {
     setIsDrawerOpen(false); // Close drawer after setting directions
   }
 
+  const formatDistance = (distance: number) => {
+    if (distance > 1000) {
+      return `${(distance / 1000).toFixed(2)} km`;
+    }
+    return `${distance.toFixed(0)} m`;
+  };
+
+  const formatDuration = (duration: number) => {
+    const minutes = Math.floor(duration / 60);
+    if (minutes < 60) {
+      return `${minutes} min`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}min`;
+  }
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
+
+        {routeDetails && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+            <Card>
+              <CardContent className="flex items-center gap-4 p-4">
+                <div>
+                  <div className="text-2xl font-bold">{formatDuration(routeDetails.duration)}</div>
+                  <div className="text-sm text-muted-foreground">{formatDistance(routeDetails.distance)}</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         <Sheet open={isDrawerOpen} onOpenChange={(open) => !open && handleDrawerClose()}>
           <SheetContent side="bottom" className="rounded-t-lg p-6">
             {locationDetails && (
