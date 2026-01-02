@@ -1,7 +1,6 @@
 
 'use client';
 import React, { useRef, useEffect, useState } from 'react';
-import Image from 'next/image';
 import mapboxgl, { GeolocateControl, Marker, LngLatLike } from 'mapbox-gl';
 import MapboxDirections from '@mapbox/mapbox-gl-directions/dist/mapbox-gl-directions';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -190,44 +189,34 @@ export default function MapExplorerPage() {
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
         <Sheet open={isDrawerOpen} onOpenChange={(open) => !open && handleDrawerClose()}>
-          <SheetContent side="bottom" className="rounded-t-lg p-0">
+          <SheetContent side="bottom" className="rounded-t-lg p-6">
             {locationDetails && (
               <div>
-                <Image
-                  alt="Location placeholder image"
-                  className="w-full h-48 object-cover rounded-t-lg"
-                  height={192}
-                  src={`https://picsum.photos/seed/${locationDetails.lng}/800/400`}
-                  width={800}
-                  data-ai-hint="landscape random"
-                />
-                <div className="p-6">
-                  <SheetHeader>
-                    {isFetchingAddress ? (
-                       <Skeleton className="h-7 w-2/3" />
-                    ) : (
-                      <SheetTitle>{addressDetails?.formatted || "Location Details"}</SheetTitle>
-                    )}
-                     {isFetchingAddress ? (
-                      <div className="space-y-2 pt-2">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-3/4" />
-                      </div>
-                    ) : (
-                      <SheetDescription>
-                        {addressDetails ? `Country: ${addressDetails.country}` : 'Details about the selected location.'}
-                      </SheetDescription>
-                    )}
-                  </SheetHeader>
-                  <div className="py-4 text-sm text-muted-foreground">
-                    <p><strong>Latitude:</strong> {locationDetails.lat.toFixed(6)}</p>
-                    <p><strong>Longitude:</strong> {locationDetails.lng.toFixed(6)}</p>
-                  </div>
-                  <SheetFooter className="flex-row gap-2 pt-4">
-                    <Button variant="outline" className="flex-1" onClick={handleGetDirections}>Get Directions</Button>
-                    <Button className="flex-1">Save Place</Button>
-                  </SheetFooter>
+                <SheetHeader>
+                  {isFetchingAddress ? (
+                     <Skeleton className="h-7 w-2/3" />
+                  ) : (
+                    <SheetTitle>{addressDetails?.formatted || "Location Details"}</SheetTitle>
+                  )}
+                   {isFetchingAddress ? (
+                    <div className="space-y-2 pt-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  ) : (
+                    <SheetDescription>
+                      {addressDetails ? `Country: ${addressDetails.country}` : 'Details about the selected location.'}
+                    </SheetDescription>
+                  )}
+                </SheetHeader>
+                <div className="py-4 text-sm text-muted-foreground">
+                  <p><strong>Latitude:</strong> {locationDetails.lat.toFixed(6)}</p>
+                  <p><strong>Longitude:</strong> {locationDetails.lng.toFixed(6)}</p>
                 </div>
+                <SheetFooter className="flex-row gap-2 pt-4">
+                  <Button variant="outline" className="flex-1" onClick={handleGetDirections}>Get Directions</Button>
+                  <Button className="flex-1">Save Place</Button>
+                </SheetFooter>
               </div>
             )}
           </SheetContent>
