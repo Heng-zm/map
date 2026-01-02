@@ -1,6 +1,7 @@
 
 'use client';
 import React, { useRef, useEffect, useState } from 'react';
+import Image from 'next/image';
 import mapboxgl, { GeolocateControl, Marker } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +11,9 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetFooter,
 } from "@/components/ui/sheet";
+import { Button } from '@/components/ui/button';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -68,21 +71,6 @@ export default function MapExplorerPage() {
     mapInstance.on('load', () => {
       geolocate.trigger();
     });
-
-    const onStyleLoad = () => {
-      if(!map.current) return;
-      if (map.current.getSource('mapbox-dem')) {
-          map.current.setTerrain(null);
-      } else {
-          map.current.addSource('mapbox-dem', {
-              'type': 'raster-dem',
-              'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-              'tileSize': 512,
-              'maxzoom': 14
-          });
-          map.current.setTerrain(null);
-      }
-    };
     
     const onMapClick = (e: mapboxgl.MapMouseEvent & {
       features?: mapboxgl.MapboxGeoJSONFeature[] | undefined;
@@ -98,11 +86,9 @@ export default function MapExplorerPage() {
       setIsDrawerOpen(true);
     };
 
-    mapInstance.on('style.load', onStyleLoad);
     mapInstance.on('click', onMapClick);
 
     return () => {
-      mapInstance.off('style.load', onStyleLoad);
       mapInstance.off('click', onMapClick);
       if (map.current) {
         map.current.remove();
@@ -125,17 +111,33 @@ export default function MapExplorerPage() {
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
         <Sheet open={isDrawerOpen} onOpenChange={(open) => !open && handleDrawerClose()}>
-          <SheetContent side="bottom" className="rounded-t-lg">
-            <SheetHeader>
-              <SheetTitle>Location Details</SheetTitle>
-              <SheetDescription>
-                Details about the selected point on the map.
-              </SheetDescription>
-            </SheetHeader>
+          <SheetContent side="bottom" className="rounded-t-lg p-0">
             {locationDetails && (
-              <div className="py-4">
-                <p><strong>Latitude:</strong> {locationDetails.lat.toFixed(6)}</p>
-                <p><strong>Longitude:</strong> {locationDetails.lng.toFixed(6)}</p>
+              <div>
+                <Image
+                  alt="Location placeholder image"
+                  className="w-full h-48 object-cover rounded-t-lg"
+                  height={192}
+                  src="https://picsum.photos/seed/123/800/400"
+                  width={800}
+                  data-ai-hint="landscape random"
+                />
+                <div className="p-6">
+                  <SheetHeader>
+                    <SheetTitle>Location Name</SheetTitle>
+                    <SheetDescription>
+                      This is a placeholder for interesting details about the selected location. You can display information like address, points of interest, or user-submitted content here.
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="py-4 text-sm text-muted-foreground">
+                    <p><strong>Latitude:</strong> {locationDetails.lat.toFixed(6)}</p>
+                    <p><strong>Longitude:</strong> {locationDetails.lng.toFixed(6)}</p>
+                  </div>
+                  <SheetFooter className="flex-row gap-2 pt-4">
+                    <Button variant="outline" className="flex-1">Get Directions</Button>
+                    <Button className="flex-1">Save Place</Button>
+                  </SheetFooter>
+                </div>
               </div>
             )}
           </SheetContent>
