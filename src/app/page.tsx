@@ -8,10 +8,10 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Download, RotateCw, PenTool, Search, Layers, PanelTopOpen, LocateFixed } from 'lucide-react';
+import { Download, RotateCw, PenTool, Search, Layers, LocateFixed } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerTrigger } from "@/components/drawer";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from "@/components/drawer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -441,15 +441,10 @@ export default function MapExplorerPage() {
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
         <Drawer>
-            <DrawerTrigger asChild>
-                <Button variant="outline" size="icon" className="absolute top-4 right-4 z-10 rounded-full shadow-lg">
-                    <PanelTopOpen />
-                </Button>
-            </DrawerTrigger>
-             <Button 
+            <Button 
                 variant="outline" 
                 size="icon" 
-                className="absolute top-16 right-4 z-10 rounded-full shadow-lg"
+                className="absolute top-4 right-4 z-10 rounded-full shadow-lg"
                 onClick={triggerGeolocation}
              >
                 <LocateFixed />
@@ -512,5 +507,7 @@ export default function MapExplorerPage() {
     </div>
   );
 }
+
+    
 
     
