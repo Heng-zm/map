@@ -1,9 +1,16 @@
 
 'use client';
 import React, { useRef, useEffect, useState } from 'react';
-import mapboxgl, { GeolocateControl } from 'mapbox-gl';
+import mapboxgl, { GeolocateControl, Marker } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from "@/hooks/use-toast";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -20,7 +27,11 @@ const mapStyle = 'mapbox://styles/mapbox/standard';
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const marker = useRef<Marker | null>(null);
   const { toast } = useToast();
+
+  const [locationDetails, setLocationDetails] = useState<{lng: number, lat: number} | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -72,11 +83,27 @@ export default function MapExplorerPage() {
           map.current.setTerrain(null);
       }
     };
+    
+    const onMapClick = (e: mapboxgl.MapMouseEvent & {
+      features?: mapboxgl.MapboxGeoJSONFeature[] | undefined;
+    }) => {
+      if (marker.current) {
+        marker.current.remove();
+      }
+      
+      const newMarker = new Marker().setLngLat(e.lngLat).addTo(mapInstance);
+      marker.current = newMarker;
+
+      setLocationDetails(e.lngLat);
+      setIsDrawerOpen(true);
+    };
 
     mapInstance.on('style.load', onStyleLoad);
+    mapInstance.on('click', onMapClick);
 
     return () => {
       mapInstance.off('style.load', onStyleLoad);
+      mapInstance.off('click', onMapClick);
       if (map.current) {
         map.current.remove();
         map.current = null;
@@ -84,9 +111,35 @@ export default function MapExplorerPage() {
     }
   }, [toast]);
 
+  const handleDrawerClose = () => {
+    setIsDrawerOpen(false);
+    if (marker.current) {
+      marker.current.remove();
+      marker.current = null;
+    }
+    setLocationDetails(null);
+  };
+
+
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
+        <Sheet open={isDrawerOpen} onOpenChange={(open) => !open && handleDrawerClose()}>
+          <SheetContent side="bottom" className="rounded-t-lg">
+            <SheetHeader>
+              <SheetTitle>Location Details</SheetTitle>
+              <SheetDescription>
+                Details about the selected point on the map.
+              </SheetDescription>
+            </SheetHeader>
+            {locationDetails && (
+              <div className="py-4">
+                <p><strong>Latitude:</strong> {locationDetails.lat.toFixed(6)}</p>
+                <p><strong>Longitude:</strong> {locationDetails.lng.toFixed(6)}</p>
+              </div>
+            )}
+          </SheetContent>
+        </Sheet>
     </div>
   );
 }
