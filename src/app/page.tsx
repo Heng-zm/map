@@ -27,9 +27,11 @@ export default function MapExplorerPage() {
   const geolocateControl = useRef<GeolocateControl | null>(null);
   const destinationMarker = useRef<Marker | null>(null);
   
+  // State Refs
   const userLocation = useRef<[number, number] | null>(null);
   const isNavigating = useRef<boolean>(false);
 
+  // UI State
   const { toast } = useToast();
   const [locationDetails, setLocationDetails] = useState<{lng: number, lat: number} | null>(null);
   const [addressDetails, setAddressDetails] = useState<any>(null);
@@ -77,15 +79,14 @@ export default function MapExplorerPage() {
     mapInstance.addControl(directions, 'top-left');
     directionsControl.current = directions;
     
-    geolocate.on('geolocate', (e: any) => {
-      const pos = e.coords;
-      const newUserLocation: [number, number] = [pos.longitude, pos.latitude];
-      userLocation.current = newUserLocation;
-      if (isNavigating.current && directionsControl.current) {
-         directionsControl.current.setOrigin(newUserLocation);
-      }
-    });
+    // --- THE FIX: AGGRESSIVE MARKER REMOVER ---
+    // This function finds the A/B markers in the DOM and deletes them
+    const nukePluginMarkers = () => {
+      const markers = document.querySelectorAll('.mapbox-directions-origin, .mapbox-directions-destination, .mapbox-directions-step');
+      markers.forEach((el) => el.remove());
+    };
 
+    // 1. Run removal whenever a route is calculated
     directions.on('route', (e: any) => {
         if (e.route && e.route.length > 0) {
           const route = e.route[0];
@@ -93,13 +94,40 @@ export default function MapExplorerPage() {
             distance: route.distance,
             duration: route.duration,
           });
+          
+          // Run immediately and slightly delayed to catch DOM updates
+          nukePluginMarkers();
+          setTimeout(nukePluginMarkers, 50);
+          setTimeout(nukePluginMarkers, 200);
         }
+    });
+
+    // 2. Setup Geolocation Tracking
+    geolocate.on('geolocate', (e: any) => {
+      const pos = e.coords;
+      const newUserLocation: [number, number] = [pos.longitude, pos.latitude];
+      userLocation.current = newUserLocation;
+      if (isNavigating.current && directionsControl.current) {
+         directionsControl.current.setOrigin(newUserLocation);
+         // Keep removing markers as the route updates live
+         setTimeout(nukePluginMarkers, 50);
+      }
     });
 
     mapInstance.on('load', () => {
       geolocate.trigger();
+      // Ensure CSS overrides are injected
+      const style = document.createElement('style');
+      style.innerHTML = `
+        .mapbox-directions-origin, .mapbox-directions-destination, .mapbox-directions-step { 
+            display: none !important; 
+            opacity: 0 !important; 
+        }
+      `;
+      document.head.appendChild(style);
     });
     
+    // Click to drop pin
     const onMapClick = (e: mapboxgl.MapMouseEvent) => {
       isNavigating.current = false;
       setRouteDetails(null);
@@ -163,7 +191,7 @@ export default function MapExplorerPage() {
 
   const handleStartNavigation = () => {
     if (!userLocation.current) {
-      toast({ title: "Locating...", description: "Waiting for GPS. Please grant location permissions." });
+      toast({ title: "Locating...", description: "Waiting for GPS." });
       geolocateControl.current?.trigger();
       return;
     }
@@ -205,6 +233,28 @@ export default function MapExplorerPage() {
 
   return (
     <div className="relative h-screen w-full overflow-hidden bg-zinc-950 font-sans text-zinc-50">
+        
+        {/* FALLBACK CSS - In case JS delete is delayed */}
+        <style jsx global>{`
+          /* Hide A and B markers */
+          .mapbox-directions-origin, 
+          .mapbox-directions-destination {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            opacity: 0 !important;
+            pointer-events: none;
+          }
+          /* Hide White dots on line */
+          .mapbox-directions-step {
+            display: none !important;
+          }
+          /* Ensure Custom Markers are Visible */
+          .mapboxgl-marker {
+            display: block;
+          }
+        `}</style>
+
         <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
 
         {routeDetails && (
