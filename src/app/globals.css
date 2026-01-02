@@ -38,6 +38,25 @@ body {
 	animation: pulse 2s infinite;
 }
 
+.mapboxgl-ctrl-geolocate {
+  background-color: hsl(var(--background)) !important;
+  border-radius: 0.5rem !important;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.mapboxgl-ctrl-geolocate:hover {
+  background-color: hsl(var(--accent)) !important;
+}
+
+.mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg' fill='%23e2e8f0'%3E%3Cpath d='M10 4C7.24 4 5 6.24 5 9c0 2.22 1.48 4.38 3.5 5.54.34.19.76.19 1.1 0C11.52 13.38 13 11.22 13 9c0-2.76-2.24-5-5-5zm0 7.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'/%3E%3Cpath d='M3.41 2.59L2 4l4.58 4.58L3 10.36V16h5.64l1.78-2.96L16 19.59l1.41-1.41-14-14zM8.36 14H5v-3.36l2.12 2.12.24.4z'/%3E%3C/svg%3E") !important;
+}
+
+.mapboxgl-ctrl-geolocate.mapboxgl-ctrl-geolocate-active .mapboxgl-ctrl-icon {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg' fill='%233b82f6'%3E%3Cpath d='M10 4C7.24 4 5 6.24 5 9c0 2.22 1.48 4.38 3.5 5.54.34.19.76.19 1.1 0C11.52 13.38 13 11.22 13 9c0-2.76-2.24-5-5-5zm0 7.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'/%3E%3Cpath d='M3.41 2.59L2 4l4.58 4.58L3 10.36V16h5.64l1.78-2.96L16 19.59l1.41-1.41-14-14z'/%3E%3C/svg%3E") !important;
+}
+
 @keyframes pulse {
 	0% {
 		transform: translate(-50%, -50%) scale(1);
