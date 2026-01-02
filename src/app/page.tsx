@@ -8,13 +8,14 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Compass, Download, Mic, PenTool, Search, Layers, LocateFixed, ArrowUp, Globe } from 'lucide-react';
+import { Globe, ArrowUp, Search, X, PenTool, Trash2, Combine, Minus, Dot } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -47,34 +48,6 @@ export default function MapExplorerPage() {
   const geolocateControl = useRef<mapboxgl.GeolocateControl | null>(null);
   const [is3D, setIs3D] = useState(true);
 
-  const setMapTerrain = useCallback((is3DEnabled: boolean) => {
-    if(!map.current) return;
-
-    if (map.current.getSource('mapbox-dem')) {
-        map.current.setTerrain(is3DEnabled ? { 'source': 'mapbox-dem', 'exaggeration': 1.5 } : null);
-        if (is3DEnabled) {
-          map.current.setPitch(60);
-        } else {
-          map.current.setPitch(0);
-        }
-        return;
-    }
-
-    map.current.addSource('mapbox-dem', {
-        'type': 'raster-dem',
-        'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-        'tileSize': 512,
-        'maxzoom': 14
-    });
-    
-    map.current.setTerrain(is3DEnabled ? { 'source': 'mapbox-dem', 'exaggeration': 1.5 } : null);
-    if (is3DEnabled) {
-      map.current.setPitch(60);
-    } else {
-      map.current.setPitch(0);
-    }
-  }, []);
-
   const removeMeasurement = useCallback(() => {
     if (measurementPopup.current) {
       measurementPopup.current.remove();
@@ -103,9 +76,19 @@ export default function MapExplorerPage() {
     }
   
     if (measurementText && center) {
+        const popupContent = document.createElement('div');
+        popupContent.className = 'bg-card text-card-foreground p-2 rounded text-sm relative';
+        popupContent.innerHTML = `<span>${measurementText}</span>`;
+        
+        const closeButton = document.createElement('button');
+        closeButton.className = 'absolute top-0 right-0 p-1';
+        closeButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+        closeButton.onclick = () => removeMeasurement();
+        popupContent.prepend(closeButton);
+
         measurementPopup.current = new mapboxgl.Popup({ closeOnClick: false, closeButton: false, offset: 10 })
             .setLngLat(center)
-            .setHTML(`<div class="bg-card text-card-foreground p-2 rounded text-sm">${measurementText}</div>`)
+            .setDOMContent(popupContent)
             .addTo(map.current);
     }
   }, [removeMeasurement]);
@@ -118,6 +101,22 @@ export default function MapExplorerPage() {
     }
   }, [calculateAndShowMeasurement, removeMeasurement]);
 
+  const setMapTerrain = useCallback((is3DEnabled: boolean) => {
+    if(!map.current) return;
+
+    if (map.current.getSource('mapbox-dem')) {
+        map.current.setTerrain(is3DEnabled ? { 'source': 'mapbox-dem', 'exaggeration': 1.5 } : null);
+    } else {
+        map.current.addSource('mapbox-dem', {
+            'type': 'raster-dem',
+            'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+            'tileSize': 512,
+            'maxzoom': 14
+        });
+        map.current.setTerrain(is3DEnabled ? { 'source': 'mapbox-dem', 'exaggeration': 1.5 } : null);
+    }
+    map.current.setPitch(is3DEnabled ? 60 : 0);
+  }, []);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -150,58 +149,14 @@ export default function MapExplorerPage() {
         point: true,
       },
       styles: [
-        {
-          "id": "gl-draw-polygon-fill-active",
-          "type": "fill",
-          "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]],
-          "paint": { "fill-color": "hsl(var(--primary))", "fill-opacity": 0.1 }
-        },
-        {
-          "id": "gl-draw-polygon-stroke-active",
-          "type": "line",
-          "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]],
-          "layout": { "line-cap": "round", "line-join": "round" },
-          "paint": { "line-color": "hsl(var(--primary))", "line-dasharray": [0.2, 2], "line-width": 2 }
-        },
-        {
-          "id": "gl-draw-line-active",
-          "type": "line",
-          "filter": ["all", ["==", "$type", "LineString"], ["==", "active", "true"]],
-          "layout": { "line-cap": "round", "line-join": "round" },
-          "paint": { "line-color": "hsl(var(--primary))", "line-dasharray": [0.2, 2], "line-width": 2 }
-        },
-        {
-          "id": "gl-draw-polygon-and-line-vertex-stroke-active",
-          "type": "circle",
-          "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]],
-          "paint": { "circle-radius": 5, "circle-color": "hsl(var(--primary))" }
-        },
-        {
-          "id": "gl-draw-polygon-and-line-vertex-active",
-          "type": "circle",
-          "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]],
-          "paint": { "circle-radius": 3, "circle-color": "#FFF" }
-        },
-        {
-            "id": "gl-draw-polygon-fill-inactive",
-            "type": "fill",
-            "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
-            "paint": { "fill-color": "hsl(var(--primary))", "fill-outline-color": "hsl(var(--primary))", "fill-opacity": 0.1 }
-        },
-        {
-            "id": "gl-draw-polygon-stroke-inactive",
-            "type": "line",
-            "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
-            "layout": { "line-cap": "round", "line-join": "round" },
-            "paint": { "line-color": "hsl(var(--primary))", "line-width": 2 }
-        },
-        {
-            "id": "gl-draw-line-inactive",
-            "type": "line",
-            "filter": ["all", ["==", "active", "false"], ["==", "$type", "LineString"], ["!=", "mode", "static"]],
-            "layout": { "line-cap": "round", "line-join": "round" },
-            "paint": { "line-color": "hsl(var(--primary))", "line-width": 2 }
-        },
+        { "id": "gl-draw-polygon-fill-active", "type": "fill", "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]], "paint": { "fill-color": "hsl(var(--primary))", "fill-opacity": 0.1 } },
+        { "id": "gl-draw-polygon-stroke-active", "type": "line", "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(var(--primary))", "line-dasharray": [0.2, 2], "line-width": 2 } },
+        { "id": "gl-draw-line-active", "type": "line", "filter": ["all", ["==", "$type", "LineString"], ["==", "active", "true"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(var(--primary))", "line-dasharray": [0.2, 2], "line-width": 2 } },
+        { "id": "gl-draw-polygon-and-line-vertex-stroke-active", "type": "circle", "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]], "paint": { "circle-radius": 5, "circle-color": "hsl(var(--primary))" } },
+        { "id": "gl-draw-polygon-and-line-vertex-active", "type": "circle", "filter": ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"], ["!=", "mode", "static"]], "paint": { "circle-radius": 3, "circle-color": "#FFF" } },
+        { "id": "gl-draw-polygon-fill-inactive", "type": "fill", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "paint": { "fill-color": "hsl(var(--primary))", "fill-outline-color": "hsl(var(--primary))", "fill-opacity": 0.1 } },
+        { "id": "gl-draw-polygon-stroke-inactive", "type": "line", "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(var(--primary))", "line-width": 2 } },
+        { "id": "gl-draw-line-inactive", "type": "line", "filter": ["all", ["==", "active", "false"], ["==", "$type", "LineString"], ["!=", "mode", "static"]], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "hsl(var(--primary))", "line-width": 2 } },
       ]
     });
     
@@ -210,15 +165,17 @@ export default function MapExplorerPage() {
         trackUserLocation: true,
         showUserHeading: true,
     });
+    
+    mapInstance.addControl(draw.current);
+    mapInstance.addControl(geolocateControl.current, 'top-right');
+    draw.current.changeMode('simple_select');
 
     const onStyleLoad = () => {
       setMapTerrain(is3D);
     };
     
     const onLoad = () => {
-      if (!mapInstance || !geolocateControl.current) return;
-      mapInstance.addControl(geolocateControl.current, 'top-right');
-      
+      if (!mapInstance) return;
       const permissionStatus = localStorage.getItem('mapbox_location_permission');
       if (permissionStatus === 'granted') {
         // geolocateControl.current.trigger(); // Don't auto-trigger
@@ -253,30 +210,10 @@ export default function MapExplorerPage() {
         map.current = null;
       }
     }
-  }, [currentStyle, toast, setMapTerrain, calculateAndShowMeasurement, removeMeasurement, handleDrawEvents, is3D]);
+  }, [currentStyle, toast, setMapTerrain, handleDrawEvents, removeMeasurement, is3D]);
 
-  const handleDownloadMap = useCallback(() => {
-    if (!map.current) return;
-    const mapInstance = map.current;
-
-    mapInstance.once('idle', () => {
-      const dataURL = mapInstance.getCanvas().toDataURL('image/png');
-      const link = document.createElement('a');
-      link.href = dataURL;
-      link.download = 'map.png';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast({
-        title: "Map downloaded",
-        description: "The map image has been saved."
-      });
-    });
-  }, [toast]);
-  
   const handleSwitchStyle = useCallback((style: string) => {
     if(!map.current) return;
-    
     setCurrentStyle(style);
     const styleName = mapStyles.find(s => s.style === style)?.name;
     toast({
@@ -343,6 +280,19 @@ export default function MapExplorerPage() {
     });
   };
 
+  const setDrawMode = (mode: string) => {
+    if (draw.current) {
+      draw.current.changeMode(mode);
+    }
+  };
+
+  const deleteFeatures = () => {
+    if (draw.current) {
+      draw.current.deleteAll();
+      removeMeasurement();
+    }
+  };
+
   return (
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
@@ -353,7 +303,7 @@ export default function MapExplorerPage() {
                 className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm text-foreground w-auto h-auto p-2.5 text-sm font-semibold"
                 onClick={toggle3D}
              >
-                {is3D ? '2D' : '3D'}
+                {is3D ? '3D' : '2D'}
             </Button>
             <div className="flex flex-col rounded-full shadow-lg bg-background/80 backdrop-blur-sm overflow-hidden">
                 <DropdownMenu>
@@ -379,6 +329,33 @@ export default function MapExplorerPage() {
                 >
                     <ArrowUp className="h-5 w-5"/>
                 </Button>
+                <div className="w-full h-[1px] bg-border" />
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                         <Button variant="ghost" size="icon" className="w-10 h-10 rounded-none">
+                            <PenTool className="h-5 w-5"/>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="mr-2">
+                        <DropdownMenuItem onSelect={() => setDrawMode('draw_point')}>
+                            <Dot className="mr-2 h-4 w-4" />
+                            <span>Point</span>
+                        </DropdownMenuItem>
+                         <DropdownMenuItem onSelect={() => setDrawMode('draw_line_string')}>
+                            <Minus className="mr-2 h-4 w-4" />
+                            <span>Line</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setDrawMode('draw_polygon')}>
+                            <Combine className="mr-2 h-4 w-4" />
+                            <span>Polygon</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={deleteFeatures}>
+                            <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                            <span className="text-destructive">Delete All</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </div>
 
@@ -393,8 +370,8 @@ export default function MapExplorerPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
-                <Button variant="ghost" size="icon" className="rounded-full shrink-0">
-                    <Mic />
+                <Button variant="ghost" size="icon" className="rounded-full shrink-0" onClick={handleSearch}>
+                    <Search />
                 </Button>
                 <Avatar className="h-10 w-10 shrink-0">
                     <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
@@ -405,5 +382,3 @@ export default function MapExplorerPage() {
     </div>
   );
 }
-
-    
