@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Globe, ArrowUp, Search, PenTool, Trash2, Combine, Minus, Dot, Route, MapPin, Layers, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -384,7 +383,7 @@ export default function MapExplorerPage() {
     <div className="h-screen w-screen overflow-hidden bg-background font-body dark">
         <div ref={mapContainer} style={containerStyle} className="absolute inset-0" />
         
-        <div className="absolute top-4 left-4 right-4 md:left-auto md:right-auto md:w-96">
+        <div className="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-96">
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
@@ -400,7 +399,7 @@ export default function MapExplorerPage() {
             </div>
         </div>
 
-        <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+        <div className="absolute top-20 right-4 flex flex-col items-end gap-2 md:top-4">
             <div className="bg-card/80 backdrop-blur-sm rounded-full p-1 flex flex-col gap-1 shadow-lg border border-border">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -465,5 +464,3 @@ export default function MapExplorerPage() {
     </div>
   );
 }
-
-    
