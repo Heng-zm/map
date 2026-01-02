@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  env: {
+    NEXT_PUBLIC_GEOAPIFY_API_KEY: '8f2ab2d784bc4371bb0cb2c3bd0361a4',
+  },
   allowedDevOrigins: ['*'],
 };
 

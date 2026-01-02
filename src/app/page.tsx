@@ -14,6 +14,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -34,6 +35,8 @@ export default function MapExplorerPage() {
   const { toast } = useToast();
 
   const [locationDetails, setLocationDetails] = useState<{lng: number, lat: number} | null>(null);
+  const [addressDetails, setAddressDetails] = useState<any>(null);
+  const [isFetchingAddress, setIsFetchingAddress] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -96,6 +99,36 @@ export default function MapExplorerPage() {
       }
     }
   }, [toast]);
+  
+  useEffect(() => {
+    if (locationDetails) {
+      const fetchAddress = async () => {
+        setIsFetchingAddress(true);
+        setAddressDetails(null);
+        try {
+          const response = await fetch(`https://api.geoapify.com/v1/geocode/reverse?lat=${locationDetails.lat}&lon=${locationDetails.lng}&apiKey=${process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY}`);
+          const data = await response.json();
+          if (data.features && data.features.length > 0) {
+            setAddressDetails(data.features[0].properties);
+          } else {
+            throw new Error("No address found");
+          }
+        } catch (error) {
+          console.error("Error fetching address:", error);
+          toast({
+            variant: "destructive",
+            title: "Could not fetch address",
+            description: "Please try a different location.",
+          });
+          setAddressDetails(null);
+        } finally {
+          setIsFetchingAddress(false);
+        }
+      };
+      fetchAddress();
+    }
+  }, [locationDetails, toast]);
+
 
   const handleDrawerClose = () => {
     setIsDrawerOpen(false);
@@ -104,6 +137,7 @@ export default function MapExplorerPage() {
       marker.current = null;
     }
     setLocationDetails(null);
+    setAddressDetails(null);
   };
 
 
@@ -118,16 +152,27 @@ export default function MapExplorerPage() {
                   alt="Location placeholder image"
                   className="w-full h-48 object-cover rounded-t-lg"
                   height={192}
-                  src="https://picsum.photos/seed/123/800/400"
+                  src={`https://picsum.photos/seed/${locationDetails.lng}/800/400`}
                   width={800}
                   data-ai-hint="landscape random"
                 />
                 <div className="p-6">
                   <SheetHeader>
-                    <SheetTitle>Location Name</SheetTitle>
-                    <SheetDescription>
-                      This is a placeholder for interesting details about the selected location. You can display information like address, points of interest, or user-submitted content here.
-                    </SheetDescription>
+                    {isFetchingAddress ? (
+                       <Skeleton className="h-7 w-2/3" />
+                    ) : (
+                      <SheetTitle>{addressDetails?.formatted || "Location Details"}</SheetTitle>
+                    )}
+                     {isFetchingAddress ? (
+                      <div className="space-y-2 pt-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-3/4" />
+                      </div>
+                    ) : (
+                      <SheetDescription>
+                        {addressDetails ? `Country: ${addressDetails.country}` : 'Details about the selected location.'}
+                      </SheetDescription>
+                    )}
                   </SheetHeader>
                   <div className="py-4 text-sm text-muted-foreground">
                     <p><strong>Latitude:</strong> {locationDetails.lat.toFixed(6)}</p>
