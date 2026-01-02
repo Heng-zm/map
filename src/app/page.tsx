@@ -38,6 +38,16 @@ export default function MapExplorerPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [routeDetails, setRouteDetails] = useState<{distance: number, duration: number} | null>(null);
 
+  const forceHideUnwantedMarkers = () => {
+      if (!mapContainer.current) return;
+      const unwanted = mapContainer.current.querySelectorAll('.mapbox-directions-origin, .mapbox-directions-destination, .mapbox-directions-step');
+      unwanted.forEach((el) => {
+         (el as HTMLElement).style.display = 'none';
+         (el as HTMLElement).style.opacity = '0';
+         (el as HTMLElement).style.pointerEvents = 'none';
+      });
+  }
+
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     
@@ -77,31 +87,10 @@ export default function MapExplorerPage() {
     });
     mapInstance.addControl(directions, 'top-left');
     directionsControl.current = directions;
-
-    // --- MUTATION OBSERVER (The "Fix-All") ---
-    // This watches the DOM. If the plugin adds the "A" or "B" markers, we hide them instantly.
+    
     if (mapContainer.current) {
         observer.current = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                mutation.addedNodes.forEach((node) => {
-                    if (node instanceof HTMLElement) {
-                        // Check if the added node matches the unwanted markers
-                        if (
-                            node.className.includes('mapbox-directions-origin') || 
-                            node.className.includes('mapbox-directions-destination') ||
-                            node.className.includes('mapbox-directions-step')
-                        ) {
-                            node.style.display = 'none';
-                        }
-                        
-                        // Sometimes they are nested deeper
-                        const unwanted = node.querySelectorAll('.mapbox-directions-origin, .mapbox-directions-destination, .mapbox-directions-step');
-                        unwanted.forEach((el) => {
-                           (el as HTMLElement).style.display = 'none';
-                        });
-                    }
-                });
-            });
+           forceHideUnwantedMarkers();
         });
 
         observer.current.observe(mapContainer.current, { 
@@ -109,8 +98,6 @@ export default function MapExplorerPage() {
             subtree: true 
         });
     }
-
-    // --- EVENTS ---
 
     geolocate.on('geolocate', (e: any) => {
       const pos = e.coords;
@@ -128,15 +115,13 @@ export default function MapExplorerPage() {
             distance: route.distance,
             duration: route.duration,
           });
-          
-          // Double check: Force search and destroy on route update
-          const markers = document.querySelectorAll('.mapbox-directions-origin, .mapbox-directions-destination');
-          markers.forEach((el: any) => el.style.display = 'none');
+          forceHideUnwantedMarkers();
         }
     });
 
     mapInstance.on('load', () => {
       geolocate.trigger();
+      forceHideUnwantedMarkers();
     });
     
     const onMapClick = (e: mapboxgl.MapMouseEvent) => {
@@ -200,6 +185,12 @@ export default function MapExplorerPage() {
       fetchAddress();
     }
   }, [locationDetails]);
+  
+  useEffect(() => {
+    if (routeDetails) {
+      forceHideUnwantedMarkers();
+    }
+  }, [routeDetails]);
 
   const handleStartNavigation = () => {
     if (!userLocation.current) {
@@ -246,7 +237,6 @@ export default function MapExplorerPage() {
   return (
     <div className="relative h-screen w-full overflow-hidden bg-zinc-950 font-sans text-zinc-50">
         
-        {/* FALLBACK INLINE STYLES */}
         <style jsx global>{`
           div[class*="mapbox-directions-origin"],
           div[class*="mapbox-directions-destination"],
@@ -259,7 +249,6 @@ export default function MapExplorerPage() {
 
         <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
 
-        {/* Live Route HUD */}
         {routeDetails && (
           <div className="absolute top-4 left-0 right-0 z-10 flex justify-center px-4 animate-in fade-in slide-in-from-top-4">
             <Card className="w-full max-w-sm shadow-xl bg-zinc-900/90 backdrop-blur border-zinc-700 text-white">
