@@ -62,8 +62,8 @@ export default function MapExplorerPage() {
       trackUserLocation: true,
       showUserLocation: true
     });
-
-    mapInstance.addControl(geolocate, 'bottom-right');
+    
+    mapInstance.addControl(geolocate);
 
     mapInstance.on('load', () => {
       geolocate.trigger();
