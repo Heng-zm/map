@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl, { GeolocateControl, Marker } from 'mapbox-gl';
 // @ts-ignore
 import MapboxDirections from '@mapbox/mapbox-gl-directions/dist/mapbox-gl-directions';
@@ -13,12 +13,25 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFo
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
-import { Navigation2, X, MapPin, Navigation, LocateFixed } from 'lucide-react';
+import { Navigation2, X, MapPin, Navigation, LocateFixed, Clock, ArrowRight, Volume2, VolumeX, Compass, Loader2 } from 'lucide-react';
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+if (!mapboxgl.accessToken) {
+    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+}
+
 const initialCenter: [number, number] = [104.9282, 11.5564];
 const initialZoom = 13;
-const mapStyle = 'mapbox://styles/mapbox/streets-v12'; 
+const mapStyle = 'mapbox://styles/mapbox/dark-v11';
+
+// --- UTILITIES ---
+function getDistanceFromLatLonInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; 
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return (R * c) * 1000;
+}
 
 export default function MapExplorerPage() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
@@ -27,112 +40,197 @@ export default function MapExplorerPage() {
   const geolocateControl = useRef<GeolocateControl | null>(null);
   const destinationMarker = useRef<Marker | null>(null);
   
-  // State Refs
+  // Refs
   const userLocation = useRef<[number, number] | null>(null);
   const isNavigating = useRef<boolean>(false);
+  const lastCameraUpdate = useRef<number>(0);
+  const lastSpokenInstruction = useRef<string>("");
+  const isMounted = useRef<boolean>(true);
 
-  // UI State
   const { toast } = useToast();
+  
+  // UI State
   const [locationDetails, setLocationDetails] = useState<{lng: number, lat: number} | null>(null);
   const [addressDetails, setAddressDetails] = useState<any>(null);
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [routeDetails, setRouteDetails] = useState<{distance: number, duration: number} | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showRecenterBtn, setShowRecenterBtn] = useState(false);
+  const [currentSpeed, setCurrentSpeed] = useState<number>(0);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  
+  const [routeDetails, setRouteDetails] = useState<{
+    distance: number; 
+    duration: number;
+    instruction: string;
+    arrivalTime: string;
+  } | null>(null);
 
+  // Refs for Event Access
+  const showRecenterBtnRef = useRef(false);
+  const isMutedRef = useRef(false);
+
+  useEffect(() => { showRecenterBtnRef.current = showRecenterBtn; }, [showRecenterBtn]);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+
+  // --- VOICE LOGIC ---
+  const speak = useCallback((text: string) => {
+    if (typeof window === 'undefined' || isMutedRef.current || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => (v.name.includes('Google') || v.name.includes('Samantha')) && v.lang.includes('en')) || voices[0];
+    if (preferredVoice) utterance.voice = preferredVoice;
+    utterance.rate = 1.0; 
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
+  // --- MAP SETUP ---
   useEffect(() => {
+    isMounted.current = true;
     if (map.current || !mapContainer.current) return;
     
-    if (!mapboxgl.accessToken) {
-        toast({ variant: "destructive", title: "Mapbox token missing" });
-        return;
+    if (mapContainer.current.hasChildNodes()) {
+        mapContainer.current.innerHTML = ''; 
     }
-
+    
     const mapInstance = new mapboxgl.Map({
       container: mapContainer.current,
       style: mapStyle,
       center: initialCenter,
       zoom: initialZoom,
-      pitch: 0,
+      pitch: 0, 
       bearing: 0,
       attributionControl: false,
+      antialias: true,
+      maxTileCacheSize: 10,
+      logoPosition: 'bottom-left',
+      cooperativeGestures: true,
+      fadeDuration: 300, 
     });
 
     map.current = mapInstance;
     mapInstance.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
 
     const geolocate = new GeolocateControl({
-      positionOptions: { enableHighAccuracy: true },
+      positionOptions: { 
+          enableHighAccuracy: true, 
+          timeout: 15000,
+          maximumAge: 0 
+      },
       trackUserLocation: true,
+      showUserHeading: true,
       showUserLocation: true,
-      showAccuracyCircle: true,
+      showAccuracyCircle: false,
     });
     geolocateControl.current = geolocate;
     mapInstance.addControl(geolocate, 'top-right');
 
-    const directions = new MapboxDirections({
-        accessToken: mapboxgl.accessToken,
-        unit: 'metric',
-        profile: 'mapbox/driving',
-        interactive: false,
-        controls: { inputs: false, instructions: false, profileSwitcher: false },
-    });
-    mapInstance.addControl(directions, 'top-left');
-    directionsControl.current = directions;
-    
-    // --- THE FIX: AGGRESSIVE MARKER REMOVER ---
-    // This function finds the A/B markers in the DOM and deletes them
-    const nukePluginMarkers = () => {
-      const markers = document.querySelectorAll('.mapbox-directions-origin, .mapbox-directions-destination, .mapbox-directions-step');
-      markers.forEach((el) => el.remove());
-    };
-
-    // 1. Run removal whenever a route is calculated
-    directions.on('route', (e: any) => {
-        if (e.route && e.route.length > 0) {
-          const route = e.route[0];
-          setRouteDetails({
-            distance: route.distance,
-            duration: route.duration,
-          });
-          
-          // Run immediately and slightly delayed to catch DOM updates
-          nukePluginMarkers();
-          setTimeout(nukePluginMarkers, 50);
-          setTimeout(nukePluginMarkers, 200);
-        }
-    });
-
-    // 2. Setup Geolocation Tracking
-    geolocate.on('geolocate', (e: any) => {
-      const pos = e.coords;
-      const newUserLocation: [number, number] = [pos.longitude, pos.latitude];
-      userLocation.current = newUserLocation;
-      if (isNavigating.current && directionsControl.current) {
-         directionsControl.current.setOrigin(newUserLocation);
-         // Keep removing markers as the route updates live
-         setTimeout(nukePluginMarkers, 50);
-      }
-    });
+    let initTimer: NodeJS.Timeout;
 
     mapInstance.on('load', () => {
-      geolocate.trigger();
-      // Ensure CSS overrides are injected
-      const style = document.createElement('style');
-      style.innerHTML = `
-        .mapbox-directions-origin, .mapbox-directions-destination, .mapbox-directions-step { 
-            display: none !important; 
-            opacity: 0 !important; 
-        }
-      `;
-      document.head.appendChild(style);
+        if (!isMounted.current) return;
+        setIsMapLoaded(true); 
+        geolocate.trigger();
+
+        initTimer = setTimeout(() => {
+             if (isMounted.current && map.current) {
+                initializeDirectionsPlugin(mapInstance);
+                add3DBuildings(mapInstance);
+             }
+        }, 600); 
+    });
+
+    // --- REAL-TIME GPS LOGIC ---
+    geolocate.on('geolocate', (e: any) => {
+      const pos = e.coords;
+      const newLat = pos.latitude;
+      const newLng = pos.longitude;
+      // Convert m/s to km/h, default to 0
+      const speedKmh = pos.speed ? Math.round(pos.speed * 3.6) : 0;
+      const heading = pos.heading;
+      
+      if(isMounted.current) setCurrentSpeed(speedKmh);
+
+      const prevLocation = userLocation.current;
+      userLocation.current = [newLng, newLat];
+
+      // If Navigating
+      if (isNavigating.current && directionsControl.current) {
+         
+         // 1. Update Route Origin
+         directionsControl.current.setOrigin([newLng, newLat]);
+
+         const now = Date.now();
+         let distanceMoved = 100;
+         if (prevLocation) {
+             distanceMoved = getDistanceFromLatLonInMeters(prevLocation[1], prevLocation[0], newLat, newLng);
+         }
+
+         // 2. Camera Update Logic
+         // Only update if we aren't panning manually (showRecenterBtn is false)
+         if (!showRecenterBtnRef.current) {
+             
+             // SMART BEARING: Only rotate map if we are moving fast enough (> 5km/h)
+             // This prevents the map from spinning wildly when stopped at a red light.
+             const shouldUpdateBearing = speedKmh > 5 && heading !== undefined && heading !== null;
+             const targetBearing = shouldUpdateBearing ? heading : mapInstance.getBearing();
+
+             // DYNAMIC ZOOM: Zoom out as we go faster
+             // 0-30km/h = Zoom 18
+             // 100km/h = Zoom 16.5
+             const targetZoom = Math.max(16.5, Math.min(18.5, 18.5 - (speedKmh / 80)));
+
+             // Throttle check: Update if moved > 2m OR time > 1s (Standard GPS rate)
+             if (distanceMoved > 2 || (now - lastCameraUpdate.current > 1000)) {
+                 lastCameraUpdate.current = now;
+
+                 mapInstance.easeTo({
+                     center: [newLng, newLat],
+                     zoom: targetZoom,
+                     pitch: 55, // Driver view tilt
+                     bearing: targetBearing,
+                     duration: 1000, // Smooth 1s transition matching GPS rate
+                     easing: (t) => t // Linear easing for constant motion
+                 });
+             }
+         }
+      }
     });
     
-    // Click to drop pin
+    // Listeners for manual interaction
+    mapInstance.on('dragstart', () => { if(isNavigating.current) setShowRecenterBtn(true); });
+    mapInstance.on('pitchstart', () => { if(isNavigating.current) setShowRecenterBtn(true); });
+
+    // --- OTHER LISTENERS ---
+    const markerObserver = new MutationObserver((mutations) => {
+        let shouldCleanup = false;
+        mutations.forEach((mutation) => {
+            if (mutation.addedNodes.length > 0) shouldCleanup = true;
+        });
+        if (shouldCleanup) {
+             requestAnimationFrame(() => {
+                 const badElements = document.querySelectorAll('.mapbox-directions-destination, .mapbox-directions-origin, .mapbox-directions-step');
+                 if(badElements.length > 0) badElements.forEach(el => el.remove());
+             });
+        }
+    });
+
+    if (mapContainer.current) {
+        markerObserver.observe(mapContainer.current, { childList: true, subtree: true });
+    }
+
     const onMapClick = (e: mapboxgl.MapMouseEvent) => {
-      isNavigating.current = false;
+      if(isNavigating.current) return;
+
       setRouteDetails(null);
+      setShowRecenterBtn(false);
+      lastSpokenInstruction.current = ""; 
+      
       if (directionsControl.current) directionsControl.current.removeRoutes();
       if (destinationMarker.current) destinationMarker.current.remove();
+      
+      mapInstance.easeTo({ pitch: 0, bearing: 0, zoom: 15, duration: 800 });
       
       const newMarker = new Marker({ color: '#ef4444' })
         .setLngLat(e.lngLat)
@@ -145,22 +243,119 @@ export default function MapExplorerPage() {
       mapInstance.flyTo({
         center: e.lngLat,
         zoom: 15,
-        offset: [0, 100],
+        offset: [0, 150],
         essential: true
       });
     };
 
     mapInstance.on('click', onMapClick);
 
+    // --- HELPER FUNCTIONS ---
+    const initializeDirectionsPlugin = (instance: mapboxgl.Map) => {
+        if(directionsControl.current) return; 
+
+        const directions = new MapboxDirections({
+            accessToken: mapboxgl.accessToken,
+            unit: 'metric',
+            profile: 'mapbox/driving',
+            interactive: false,
+            controls: { inputs: false, instructions: false, profileSwitcher: false },
+            alternatives: false,
+            flyTo: false
+        });
+        instance.addControl(directions, 'top-left');
+        directionsControl.current = directions;
+
+        directions.on('route', (e: any) => {
+          if (!isMounted.current) return;
+          if (e.route && e.route.length > 0) {
+            const route = e.route[0];
+            const leg = route.legs[0];
+            
+            const firstStep = leg.steps[0]?.maneuver?.instruction;
+            const secondStep = leg.steps[1]?.maneuver?.instruction;
+            const instructionText = (leg.steps[0]?.distance < 20 && secondStep) ? secondStep : (firstStep || "Follow Route");
+
+            const now = new Date();
+            const arrivalDate = new Date(now.getTime() + route.duration * 1000);
+            const arrivalString = arrivalDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            setRouteDetails({
+              distance: route.distance,
+              duration: route.duration,
+              instruction: instructionText,
+              arrivalTime: arrivalString
+            });
+            
+            styleRouteLayers(instance);
+            setTimeout(() => styleRouteLayers(instance), 300);
+          }
+      });
+    }
+
+    const add3DBuildings = (instance: mapboxgl.Map) => {
+        if (!instance.getStyle() || !instance.getSource('composite')) return;
+        const layers = instance.getStyle().layers;
+        const labelLayerId = layers?.find((layer) => layer.type === 'symbol' && layer.layout?.['text-field'])?.id;
+
+        if(!instance.getLayer('3d-buildings')) {
+            try {
+                instance.addLayer({
+                    'id': '3d-buildings',
+                    'source': 'composite',
+                    'source-layer': 'building',
+                    'filter': ['==', 'extrude', 'true'],
+                    'type': 'fill-extrusion',
+                    'minzoom': 14,
+                    'paint': {
+                        'fill-extrusion-color': '#242424',
+                        'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.05, ['get', 'height']],
+                        'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.05, ['get', 'min_height']],
+                        'fill-extrusion-opacity': 0.85
+                    }
+                }, labelLayerId);
+            } catch (e) {
+                console.warn("3D buildings error", e);
+            }
+        }
+    }
+
+    const styleRouteLayers = (instance: mapboxgl.Map) => {
+          if (instance.getLayer('directions-route-line-casing')) {
+              instance.setPaintProperty('directions-route-line-casing', 'line-color', '#1e3a8a');
+              instance.setPaintProperty('directions-route-line-casing', 'line-width', 12);
+              instance.setPaintProperty('directions-route-line-casing', 'line-opacity', 0.9);
+          }
+          if (instance.getLayer('directions-route-line')) {
+              instance.setPaintProperty('directions-route-line', 'line-color', '#3b82f6');
+              instance.setPaintProperty('directions-route-line', 'line-width', 6);
+              instance.setPaintProperty('directions-route-line', 'line-opacity', 1);
+          }
+    };
+
     return () => {
+      isMounted.current = false;
+      clearTimeout(initTimer);
+      markerObserver.disconnect();
       mapInstance.off('click', onMapClick);
       if (map.current) {
         map.current.remove();
         map.current = null;
       }
     }
-  }, [toast]);
+  }, []); 
   
+  // --- EFFECTS & HANDLERS ---
+  
+  useEffect(() => {
+    if (routeDetails?.instruction && isNavigating.current) {
+        if (lastSpokenInstruction.current !== routeDetails.instruction) {
+            speak(routeDetails.instruction);
+            lastSpokenInstruction.current = routeDetails.instruction;
+        }
+    }
+  }, [routeDetails, speak]);
+
   useEffect(() => {
     if (locationDetails) {
       const fetchAddress = async () => {
@@ -174,15 +369,15 @@ export default function MapExplorerPage() {
         try {
           const response = await fetch(`https://api.geoapify.com/v1/geocode/reverse?lat=${locationDetails.lat}&lon=${locationDetails.lng}&apiKey=${apiKey}`);
           const data = await response.json();
-          if (data.features && data.features.length > 0) {
+          if (isMounted.current && data.features && data.features.length > 0) {
             setAddressDetails(data.features[0].properties);
-          } else {
+          } else if (isMounted.current) {
             setAddressDetails({ formatted: "Unknown Location" });
           }
         } catch (error) {
-          setAddressDetails({ formatted: "Address unavailable" });
+          if (isMounted.current) setAddressDetails({ formatted: "Address unavailable" });
         } finally {
-          setIsFetchingAddress(false);
+          if (isMounted.current) setIsFetchingAddress(false);
         }
       };
       fetchAddress();
@@ -196,22 +391,53 @@ export default function MapExplorerPage() {
       return;
     }
     if (!locationDetails) return;
+    
     isNavigating.current = true;
+    setShowRecenterBtn(false);
+
+    if (!isMuted) speak("Starting route");
+    
     if (directionsControl.current) {
       directionsControl.current.setOrigin(userLocation.current);
       directionsControl.current.setDestination([locationDetails.lng, locationDetails.lat]);
     }
+    
     setIsDrawerOpen(false);
+
     if(map.current) {
-        map.current.fitBounds([
-            userLocation.current,
-            [locationDetails.lng, locationDetails.lat]
-        ], { padding: 100 });
+        map.current.flyTo({
+            center: userLocation.current,
+            zoom: 18,
+            pitch: 55,
+            bearing: 0,
+            essential: true,
+            duration: 1500
+        });
+    }
+  }
+
+  const handleRecenter = () => {
+      if(!userLocation.current || !map.current) return;
+      setShowRecenterBtn(false);
+      
+      map.current.flyTo({
+          center: userLocation.current,
+          zoom: 18,
+          pitch: 55,
+          bearing: map.current.getBearing(), 
+          duration: 1000
+      });
+  }
+
+  const resetCompass = () => {
+    if(map.current) {
+        map.current.easeTo({ bearing: 0, pitch: 0, duration: 800 });
     }
   }
 
   const clearRoute = () => {
     isNavigating.current = false;
+    window.speechSynthesis.cancel();
     if (directionsControl.current) directionsControl.current.removeRoutes();
     if (destinationMarker.current) {
       destinationMarker.current.remove();
@@ -220,94 +446,138 @@ export default function MapExplorerPage() {
     setRouteDetails(null);
     setLocationDetails(null);
     setIsDrawerOpen(false);
+    setShowRecenterBtn(false);
+    
     if(map.current && userLocation.current) {
-        map.current.flyTo({ center: userLocation.current, zoom: 14 });
+        map.current.flyTo({ center: userLocation.current, zoom: 14, pitch: 0, bearing: 0, duration: 1000 });
     }
   }
 
   const formatDistance = (d: number) => d > 1000 ? `${(d / 1000).toFixed(1)} km` : `${d.toFixed(0)} m`;
   const formatDuration = (s: number) => {
     const m = Math.round(s / 60);
-    return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`;
+    if (m < 60) return `${m} min`;
+    const hours = Math.floor(m / 60);
+    const mins = m % 60;
+    return `${hours}h ${mins}m`;
   }
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-zinc-950 font-sans text-zinc-50">
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-zinc-950 font-sans text-zinc-50">
         
-        {/* FALLBACK CSS - In case JS delete is delayed */}
-        <style jsx global>{`
-          /* Hide A and B markers */
-          .mapbox-directions-origin, 
-          .mapbox-directions-destination {
-            display: none !important;
-            width: 0 !important;
-            height: 0 !important;
-            opacity: 0 !important;
-            pointer-events: none;
-          }
-          /* Hide White dots on line */
-          .mapbox-directions-step {
-            display: none !important;
-          }
-          /* Ensure Custom Markers are Visible */
-          .mapboxgl-marker {
-            display: block;
-          }
-        `}</style>
+        {/* Loading Overlay */}
+        <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950 text-white ${isMapLoaded ? 'loader-fade-out' : ''}`}>
+            <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-4" />
+            <p className="text-zinc-400 text-sm">Initializing Map...</p>
+        </div>
 
         <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
 
+        {/* HUD */}
         {routeDetails && (
-          <div className="absolute top-4 left-0 right-0 z-10 flex justify-center px-4 animate-in fade-in slide-in-from-top-4">
-            <Card className="w-full max-w-sm shadow-xl bg-zinc-900/90 backdrop-blur border-zinc-700 text-white">
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex gap-4 items-center">
-                    <div className="bg-blue-600 p-2 rounded-full text-white animate-pulse">
-                        <Navigation2 className="h-6 w-6 fill-current" />
+          <div className="absolute top-0 left-0 right-0 z-10 flex justify-center pt-2 px-2 pointer-events-none pb-[safe-area-inset-top]">
+            <Card className="w-full max-w-md shadow-2xl bg-zinc-900/95 backdrop-blur-md border-zinc-700 text-white pointer-events-auto rounded-xl">
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-start gap-4">
+                    <div className="bg-green-600 p-3 rounded-lg text-white shadow-lg shrink-0 mt-1 animate-in zoom-in-50">
+                        <ArrowRight className="h-8 w-8" />
                     </div>
-                    <div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold tracking-tight">{formatDuration(routeDetails.duration)}</span>
-                            <span className="text-sm text-zinc-400">({formatDistance(routeDetails.distance)})</span>
+                    <div className="flex-1 min-w-0">
+                         <div className="text-zinc-400 text-xs font-medium uppercase tracking-wider mb-0.5">Next Step</div>
+                         <div className="text-xl font-bold leading-tight break-words text-white">
+                             {routeDetails.instruction}
+                         </div>
+                    </div>
+                    <div className="flex flex-col gap-2 shrink-0">
+                         <Button variant="ghost" size="icon" onClick={() => setIsMuted(!isMuted)} className="h-9 w-9 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400">
+                            {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5 text-green-400" />}
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={clearRoute} className="h-9 w-9 rounded-full bg-zinc-800 hover:bg-red-900/50 text-zinc-400 hover:text-red-400">
+                            <X className="h-5 w-5" />
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-zinc-800">
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-bold tracking-tight text-green-400">
+                            {formatDuration(routeDetails.duration)}
+                        </span>
+                        <span className="text-sm font-medium text-zinc-400">
+                            ({formatDistance(routeDetails.distance)})
+                        </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                        <div className="hidden sm:flex items-center justify-center bg-zinc-800 h-8 w-12 rounded-md border border-zinc-700 mr-2">
+                             <span className="text-sm font-bold text-white">{currentSpeed}</span>
+                             <span className="text-[9px] text-zinc-500 ml-0.5 mt-0.5">km/h</span>
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-green-400">
-                             <LocateFixed className="h-3 w-3" /> Live Navigation
+                        <div className="flex items-center gap-2 bg-zinc-800/50 px-3 py-1.5 rounded-full border border-zinc-700/50">
+                            <Clock className="h-4 w-4 text-blue-400" />
+                            <span className="text-sm font-semibold text-blue-100">
+                            {routeDetails.arrivalTime}
+                            </span>
                         </div>
                     </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={clearRoute} className="h-8 w-8 rounded-full hover:bg-zinc-800 text-white">
-                    <X className="h-4 w-4" />
-                </Button>
+
               </CardContent>
             </Card>
           </div>
         )}
 
+        <div className="absolute right-4 bottom-32 flex flex-col gap-3 pointer-events-auto">
+             {!isNavigating.current && (
+                 <Button 
+                    size="icon" 
+                    className="h-12 w-12 rounded-full bg-zinc-900/90 border border-zinc-700 text-zinc-300 hover:bg-zinc-800 shadow-xl"
+                    onClick={resetCompass}
+                 >
+                    <Compass className="h-6 w-6" />
+                 </Button>
+             )}
+
+             {showRecenterBtn && (
+                <Button 
+                    onClick={handleRecenter}
+                    className="h-14 w-14 rounded-full bg-zinc-900 border border-zinc-700 shadow-2xl hover:bg-zinc-800 text-blue-500 flex flex-col items-center justify-center gap-0 animate-in slide-in-from-right-10 fade-in duration-300"
+                >
+                    <LocateFixed className="h-6 w-6" />
+                    <span className="text-[10px] font-bold">Re-center</span>
+                </Button>
+             )}
+        </div>
+
         <Sheet open={isDrawerOpen} onOpenChange={(open) => !open && !isNavigating.current && setIsDrawerOpen(false)}>
-          <SheetContent side="bottom" className="rounded-t-xl p-6 border-zinc-800 sm:max-w-md sm:mx-auto bg-zinc-950 text-white">
+          <SheetContent side="bottom" className="rounded-t-2xl p-6 border-zinc-800 sm:max-w-md sm:mx-auto bg-zinc-950 text-white mb-[safe-area-inset-bottom]">
             {locationDetails && (
-              <div className="space-y-4">
-                <SheetHeader className="text-left space-y-1">
-                  {isFetchingAddress ? (
-                     <div className="space-y-2">
-                         <Skeleton className="h-6 w-2/3 bg-zinc-800" />
-                         <Skeleton className="h-4 w-1/3 bg-zinc-800" />
-                     </div>
-                  ) : (
-                    <>
-                        <SheetTitle className="text-xl line-clamp-2 leading-tight text-white">
-                            {addressDetails?.formatted || "Selected Location"}
-                        </SheetTitle>
-                        <SheetDescription className="flex items-center gap-2 text-zinc-400">
-                           <MapPin className="h-3 w-3" />
-                           {locationDetails.lat.toFixed(5)}, {locationDetails.lng.toFixed(5)}
-                        </SheetDescription>
-                    </>
-                  )}
+              <div className="space-y-5 pb-4">
+                <SheetHeader className="text-left space-y-2">
+                   <SheetTitle className="text-xl font-bold line-clamp-2 leading-tight text-white">
+                        {isFetchingAddress ? (
+                            <Skeleton className="h-7 w-2/3 bg-zinc-800" />
+                        ) : (
+                            addressDetails?.formatted || "Selected Location"
+                        )}
+                   </SheetTitle>
+                   <SheetDescription asChild>
+                      <div className="flex items-center gap-2 text-zinc-400 text-sm">
+                        {isFetchingAddress ? (
+                             <Skeleton className="h-5 w-1/3 bg-zinc-800" />
+                        ) : (
+                             <>
+                                <MapPin className="h-4 w-4" />
+                                {locationDetails.lat.toFixed(5)}, {locationDetails.lng.toFixed(5)}
+                             </>
+                        )}
+                      </div>
+                   </SheetDescription>
                 </SheetHeader>
+
                 <SheetFooter className="pt-2">
-                  <Button className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white" size="lg" onClick={handleStartNavigation}>
-                    <Navigation className="h-4 w-4" /> Start Navigation
+                  <Button className="w-full gap-2 bg-blue-600 active:bg-blue-700 text-white h-12 text-lg font-medium shadow-blue-900/20 shadow-lg" onClick={handleStartNavigation}>
+                    <Navigation className="h-5 w-5" /> Start Navigation
                   </Button>
                 </SheetFooter>
               </div>

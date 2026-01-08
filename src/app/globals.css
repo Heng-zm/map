@@ -2,85 +2,132 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #__next {
+/* --- GLOBAL MOBILE & VIEWPORT OPTIMIZATION --- */
+html {
   height: 100%;
+  width: 100%;
+  overflow: hidden; /* Prevent page scrolling */
+  touch-action: none; /* Disable browser pinch-zoom/pan on the page itself */
+}
+
+body, #__next {
+  /* Use dvh (Dynamic Viewport Height) to handle mobile address bars correctly */
+  height: 100dvh; 
   width: 100%;
   padding: 0;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none; /* Prevent "pull-to-refresh" bounce effect */
+  -webkit-overflow-scrolling: touch;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-body {
-  font-family: var(--font-body);
-}
+/* --- MAPBOX DIRECTIONS PLUGIN OVERRIDES ("NUCLEAR" OPTION) --- */
+/* 
+   We use opacity, visibility, and transform because the plugin 
+   aggressively adds 'display: block' via inline JS.
+*/
 
-/* --- NUCLEAR CSS OVERRIDES --- */
-
-/* 1. Hide the specific Directions Plugin Markers using attribute wildcards */
-/* This catches class="mapbox-directions-origin" even if other classes are present */
-div[class*="mapbox-directions-origin"],
-div[class*="mapbox-directions-destination"] {
-  display: none !important;
+/* 1. Hide Origin (A), Destination (B), and Waypoints */
+.mapbox-directions-destination,
+.mapbox-directions-origin,
+.mapbox-directions-step {
   opacity: 0 !important;
   visibility: hidden !important;
-  pointer-events: none !important;
   width: 0 !important;
   height: 0 !important;
+  pointer-events: none !important;
+  transform: scale(0) !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: none !important; /* Performance: remove transition overhead */
 }
 
-/* 2. Hide intermediate Waypoints (white dots) */
-div[class*="mapbox-directions-step"] {
+/* 2. Hide any text inside markers (like the "A" or "B") */
+.mapbox-directions-destination *,
+.mapbox-directions-origin * {
   display: none !important;
 }
 
-/* 3. Hide the text input box (Top Left) */
+/* 3. Hide the white dots along the route line */
+.mapbox-directions-route-summary,
+.mapbox-directions-instructions {
+  display: none !important;
+}
+
+/* 4. Hide the Input Box Control Panel (Top Left) */
 .mapboxgl-ctrl-top-left .mapboxgl-ctrl-directions {
   display: none !important;
 }
 
-/* 4. Hide the geolocate button but keep functionality */
+/* 5. Hide the default Geolocate Button (we trigger it programmatically) */
+/* Remove this block if you want the button visible */
 .mapboxgl-ctrl-geolocate {
     display: none !important;
 }
 
-/* --- Keep Custom Elements Visible --- */
+/* --- CUSTOM MARKER STYLES --- */
 
-/* Ensure generic markers (your Red Marker) work */
+/* Ensure generic/custom markers (like your Red Pin) are visible */
 .mapboxgl-marker {
   display: block;
+  will-change: transform; /* Hardware acceleration hint for mobile */
 }
 
-/* Custom User Location Dot */
+/* Custom User Location Dot (Pulsing Blue) */
 .mapboxgl-user-location-dot {
   display: block !important;
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background-color: #3b82f6;
+  background-color: #3b82f6; /* Tailwind Blue-500 */
   border: 2px solid #fff;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  pointer-events: none;
 }
 
+/* The Pulse Ring */
 .mapboxgl-user-location-dot::before {
   content: "";
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background-color: rgba(59, 130, 246, 0.3);
+  background-color: rgba(59, 130, 246, 0.4);
   animation: pulse 2s infinite;
+  z-index: -1;
+}
+
+/* Utility for fading out the loading screen */
+.loader-fade-out {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease-in-out;
+}
+
+/* Reduce logo size on mobile to save screen real estate */
+@media (max-width: 640px) {
+    .mapboxgl-ctrl-logo {
+        transform: scale(0.85);
+        transform-origin: bottom left;
+    }
+    .mapboxgl-ctrl-attrib {
+        transform: scale(0.85);
+        transform-origin: bottom right;
+    }
 }
 
 @keyframes pulse {
-  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+  0% { transform: translate(-50%, -50%) scale(0.8); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
 }
 
+/* --- SHADCN UI THEME VARIABLES --- */
 @layer base {
-  /* ... Your existing Shadcn colors ... */
   :root {
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
@@ -125,7 +172,12 @@ div[class*="mapbox-directions-step"] {
     --ring: 240 4.9% 83.9%;
   }
 }
+
 @layer base {
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
